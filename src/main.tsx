@@ -4,8 +4,10 @@ import { HashRouter, Outlet, Route, Routes } from 'react-router'
 import { TabBar } from './components/TabBar'
 import { ContentGate } from './content/ContentProvider'
 import { AnimLab } from './screens/AnimLab'
+import { Coach } from './screens/Coach'
 import { Home } from './screens/Home'
 import { Library } from './screens/Library'
+import { Progress } from './screens/Progress'
 import { Settings } from './screens/Settings'
 import { Workout } from './screens/Workout'
 import './index.css'
@@ -39,6 +41,8 @@ createRoot(document.getElementById('root')!).render(
 
           <Route element={<Shell />}>
             <Route path="/" element={<Home />} />
+            <Route path="/progress" element={<Progress />} />
+            <Route path="/coach" element={<Coach />} />
             <Route path="/library" element={<Library />} />
             <Route path="/library/:chapterId" element={<Library />} />
             <Route path="/library/:chapterId/:stepNo" element={<Library />} />

@@ -2,6 +2,8 @@ import { NavLink } from 'react-router'
 
 const TABS = [
   { to: '/', label: '今日', end: true },
+  { to: '/progress', label: '進捗', end: false },
+  { to: '/coach', label: 'コーチ', end: false },
   { to: '/library', label: '図鑑', end: false },
   { to: '/settings', label: '設定', end: false },
 ] as const
