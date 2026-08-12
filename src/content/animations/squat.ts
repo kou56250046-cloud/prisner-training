@@ -130,7 +130,60 @@ export const squat02: Animation = {
   ],
 }
 
+/** ステップ3 サポーティド・スクワット（p.118-119） */
+export const squat03: Animation = {
+  id: 'squat-03',
+  durationMs: 4500,
+  camera: { minX: 2, maxX: 96, minY: -8, maxY: 100 },
+  props: [
+    { kind: 'ground' },
+    { kind: 'block', x: 48, y: 0, w: 40, h: 52, label: '太ももより高い台' },
+  ],
+  guides: [{ kind: 'trail', joint: 'pelvis' }],
+  caption:
+    '腕はできるだけまっすぐに保ち、引き上げるのではなく下向きに押して補助する。楽になるごとに腕にかける力を弱めていく。',
+  keyframes: [
+    {
+      t: 0,
+      label: 'スタート',
+      hold: 500,
+      pose: {
+        // 腕を前に伸ばして下ろし、台に手のひらをつける
+        pelvis: { x: 30, y: 48 },
+        torso: 78,
+        head: 80,
+        armNear: { mode: 'ik', target: { x: 48, y: 52 }, bend: -1, ext: -20 },
+        legNear: { mode: 'ik', target: { x: 30, y: 4 }, bend: 1, ext: -30 },
+      },
+    },
+    {
+      t: 0.5,
+      label: 'フィニッシュ',
+      hold: 400,
+      pose: {
+        // 背中をまっすぐ保ったまま、ハムストリングスがふくらはぎに当たるまで沈む
+        pelvis: { x: 22, y: 12 },
+        torso: 68,
+        head: 70,
+        armNear: { mode: 'ik', target: { x: 48, y: 52 }, bend: -1, ext: -20 },
+        legNear: { mode: 'ik', target: { x: 30, y: 4 }, bend: 1, ext: -30 },
+      },
+    },
+    {
+      t: 1,
+      pose: {
+        pelvis: { x: 30, y: 48 },
+        torso: 78,
+        head: 80,
+        armNear: { mode: 'ik', target: { x: 48, y: 52 }, bend: -1, ext: -20 },
+        legNear: { mode: 'ik', target: { x: 30, y: 4 }, bend: 1, ext: -30 },
+      },
+    },
+  ],
+}
+
 export const squatAnimations: Record<string, Animation> = {
   'squat-01': squat01,
   'squat-02': squat02,
+  'squat-03': squat03,
 }

@@ -91,6 +91,9 @@ export function StickFigure({
         {ghost && <Figure skeleton={ghost} hideFar color="rgba(245,240,232,0.16)" ghost />}
         <Figure skeleton={skeleton} hideFar={hideFar} asymmetric={asymmetric} />
 
+        {/* バーは顔の手前にあるので、体より後に描かないと頭に隠れてしまう */}
+        <PropLayer props={props} camera={camera} foreground />
+
         <GuideLayer guides={guides} camera={camera} skeleton={skeleton} />
       </g>
 
@@ -145,6 +148,12 @@ function Figure({
         stroke={near}
         strokeWidth={3.5}
       />
+
+      <Limb limb={skeleton.legNear} stroke={near} width={4.5} />
+      <Limb limb={skeleton.armNear} stroke={near} width={4} />
+
+      {/* 頭は手足より後に描く。プルアップのように腕が頭の横を通る種目で、
+          腕が頭を串刺しにしたように見えるのを防ぐ */}
       <circle
         cx={skeleton.head.x}
         cy={skeleton.head.y}
@@ -153,9 +162,6 @@ function Figure({
         strokeWidth={3}
         fill={ghost ? 'none' : '#141210'}
       />
-
-      <Limb limb={skeleton.legNear} stroke={near} width={4.5} />
-      <Limb limb={skeleton.armNear} stroke={near} width={4} />
 
       {!ghost && (
         <>
@@ -193,11 +199,24 @@ function Surface({ x, y, w, h }: { x: number; y: number; w: number; h: number })
   )
 }
 
-function PropLayer({ props, camera }: { props: Prop[]; camera: Camera }) {
+/** バーだけは体より手前に描く。それ以外は背景として体より後ろに描く */
+const IS_FOREGROUND = (p: Prop) => p.kind === 'bar'
+
+function PropLayer({
+  props,
+  camera,
+  foreground,
+}: {
+  props: Prop[]
+  camera: Camera
+  foreground?: boolean
+}) {
   // 床 → 壁 → 台 の順に描く。後のものが塗りつぶしで手前に来るので、
   // 床の線が壁を突き抜けて見えることがなくなる
   const order = { ground: 0, wall: 1, block: 2, bar: 3, ball: 4 } as const
-  const sorted = [...props].sort((a, b) => order[a.kind] - order[b.kind])
+  const sorted = [...props]
+    .filter((p) => !!foreground === IS_FOREGROUND(p))
+    .sort((a, b) => order[a.kind] - order[b.kind])
 
   return (
     <g>
@@ -255,15 +274,16 @@ function PropLayer({ props, camera }: { props: Prop[]; camera: Camera }) {
               </g>
             )
           case 'bar':
+            // バーは手に隠れやすいので、暗色ではなくアクセント色の輪で描く
             return (
               <circle
                 key={i}
                 cx={p.x}
                 cy={p.y}
-                r={2.6}
+                r={3.4}
                 fill="#100e0c"
-                stroke={STRUCTURE}
-                strokeWidth="2"
+                stroke={ACCENT}
+                strokeWidth="2.2"
               />
             )
           case 'ball':

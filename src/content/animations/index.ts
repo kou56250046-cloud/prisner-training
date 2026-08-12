@@ -1,4 +1,6 @@
 import type { Animation } from '@/anim/types'
+import { legraiseAnimations } from './legraise'
+import { pullupAnimations } from './pullup'
 import { pushupAnimations } from './pushup'
 import { squatAnimations } from './squat'
 
@@ -11,4 +13,6 @@ import { squatAnimations } from './squat'
 export const animations: Record<string, Animation> = {
   ...pushupAnimations,
   ...squatAnimations,
+  ...pullupAnimations,
+  ...legraiseAnimations,
 }

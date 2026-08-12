@@ -45,7 +45,7 @@ function propSvg(p: Prop, c: Camera): string {
     case 'block':
       return `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="#100e0c"/><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${hatch}"/><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="none" stroke="${STRUCT}" stroke-width="2"/>`
     case 'bar':
-      return `<circle cx="${p.x}" cy="${p.y}" r="2.6" fill="#100e0c" stroke="${STRUCT}" stroke-width="2"/>`
+      return `<circle cx="${p.x}" cy="${p.y}" r="3.4" fill="#100e0c" stroke="${ACCENT}" stroke-width="2.2"/>`
     case 'ball':
       return `<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="none" stroke="${ACCENT}" stroke-width="1.4"/>`
   }
@@ -54,10 +54,11 @@ function propSvg(p: Prop, c: Camera): string {
 function frameSvg(anim: Animation, s: Skeleton): string {
   const c = anim.camera
   const K = c.minY + c.maxY
-  const props = [...anim.props]
-    .sort((a, b) => ({ ground: 0, wall: 1, block: 2, bar: 3, ball: 4 })[a.kind] - ({ ground: 0, wall: 1, block: 2, bar: 3, ball: 4 })[b.kind])
-    .map((p) => propSvg(p, c))
-    .join('')
+  const order = { ground: 0, wall: 1, block: 2, bar: 3, ball: 4 }
+  const sorted = [...anim.props].sort((a, b) => order[a.kind] - order[b.kind])
+  // バーだけは体より手前（顔の手前にあるため）
+  const props = sorted.filter((p) => p.kind !== 'bar').map((p) => propSvg(p, c)).join('')
+  const propsFg = sorted.filter((p) => p.kind === 'bar').map((p) => propSvg(p, c)).join('')
 
   const farColor = anim.asymmetric ? FAR_STRONG : FAR
   const far = anim.hideFar
@@ -81,8 +82,9 @@ function frameSvg(anim: Animation, s: Skeleton): string {
 ${props}${guides}${far}
 <line x1="${s.pelvis.x}" y1="${s.pelvis.y}" x2="${s.shoulder.x}" y2="${s.shoulder.y}" stroke="${BONE}" stroke-width="5.5" stroke-linecap="round"/>
 <line x1="${s.shoulder.x}" y1="${s.shoulder.y}" x2="${s.head.x}" y2="${s.head.y}" stroke="${BONE}" stroke-width="3.5" stroke-linecap="round"/>
-<circle cx="${s.head.x}" cy="${s.head.y}" r="${DIM.headR}" fill="#141210" stroke="${BONE}" stroke-width="3"/>
 ${limbPath(s.legNear, BONE, 4.5)}${limbPath(s.armNear, BONE, 4)}
+<circle cx="${s.head.x}" cy="${s.head.y}" r="${DIM.headR}" fill="#141210" stroke="${BONE}" stroke-width="3"/>
+${propsFg}
 <circle cx="${s.shoulder.x}" cy="${s.shoulder.y}" r="1.7" fill="${ACCENT}"/>
 <circle cx="${s.pelvis.x}" cy="${s.pelvis.y}" r="1.7" fill="${ACCENT}"/>
 <circle cx="${s.armNear.mid.x}" cy="${s.armNear.mid.y}" r="1.7" fill="${ACCENT}"/>
