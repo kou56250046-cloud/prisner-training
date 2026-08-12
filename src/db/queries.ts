@@ -154,6 +154,64 @@ export async function getStepHistory(
     .slice(0, limit)
 }
 
+export type StepTotal = {
+  stepId: string
+  chapterId: ChapterId
+  /** ワークセットとウォームアップを合わせた累計レップス */
+  totalReps: number
+  /** ワークセットだけの累計 */
+  workReps: number
+  sets: number
+  /** 1セットの自己最高記録 */
+  bestSet: number
+  lastAt: number
+}
+
+/**
+ * ステップごとの累計。積み上がった数字は、それ自体が続ける理由になる。
+ * ウォームアップのレップスも、実際にやった回数なので合算する。
+ */
+export async function getStepTotals(): Promise<Map<string, StepTotal>> {
+  const all = await db.entries.toArray()
+  const map = new Map<string, StepTotal>()
+
+  for (const e of all) {
+    const cur = map.get(e.stepId) ?? {
+      stepId: e.stepId,
+      chapterId: e.chapterId,
+      totalReps: 0,
+      workReps: 0,
+      sets: 0,
+      bestSet: 0,
+      lastAt: 0,
+    }
+    cur.totalReps += e.actualReps
+    if (e.kind === 'work') cur.workReps += e.actualReps
+    cur.sets += 1
+    cur.bestSet = Math.max(cur.bestSet, e.actualReps)
+    cur.lastAt = Math.max(cur.lastAt, e.completedAt)
+    map.set(e.stepId, cur)
+  }
+  return map
+}
+
+/** 日付ごとの実施セット数。カレンダー表示に使う */
+export async function getDailyVolume(): Promise<Map<string, { sets: number; reps: number }>> {
+  const [sessions, entries] = await Promise.all([db.sessions.toArray(), db.entries.toArray()])
+  const dateOf = new Map(sessions.map((s) => [s.id, s.date]))
+  const out = new Map<string, { sets: number; reps: number }>()
+
+  for (const e of entries) {
+    const date = dateOf.get(e.sessionId)
+    if (!date) continue
+    const cur = out.get(date) ?? { sets: 0, reps: 0 }
+    cur.sets += 1
+    cur.reps += e.actualReps
+    out.set(date, cur)
+  }
+  return out
+}
+
 export async function countSessionsInRange(fromMs: number): Promise<number> {
   const all = await db.sessions.where('status').equals('done').toArray()
   return all.filter((s) => s.startedAt >= fromMs).length

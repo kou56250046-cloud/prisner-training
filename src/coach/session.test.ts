@@ -4,11 +4,14 @@ import type { Content } from '@/content/load'
 import type { Chapter, Routine, Step } from '@/content/types'
 import {
   ensureProgress,
+  finishSession,
+  getDailyVolume,
   getStepHistory,
+  getStepTotals,
   promote,
   recordSet,
   startSession,
-  finishSession,
+  todayKey,
 } from '@/db/queries'
 import { db } from '@/db/schema'
 import { canPromote } from './rules'
@@ -286,5 +289,82 @@ describe('記録フロー', () => {
     const b = await startSession('new_blood')
     expect(b.id).toBe(a.id)
     expect(await db.sessions.count()).toBe(1)
+  })
+})
+
+describe('累計の集計', () => {
+  beforeEach(clearDb)
+
+  it('ステップごとにレップスとセットを積み上げる', async () => {
+    const s = await startSession('new_blood')
+    // ウォームアップはステップ1、ワークセットはステップ3に記録される
+    await recordSet({
+      sessionId: s.id,
+      stepId: 'pushup-01',
+      chapterId: 'pushup',
+      setNo: 1,
+      kind: 'warmup',
+      targetReps: 20,
+      actualReps: 20,
+    })
+    await recordSet({
+      sessionId: s.id,
+      stepId: 'pushup-03',
+      chapterId: 'pushup',
+      setNo: 1,
+      kind: 'work',
+      targetReps: 10,
+      actualReps: 12,
+    })
+    await recordSet({
+      sessionId: s.id,
+      stepId: 'pushup-03',
+      chapterId: 'pushup',
+      setNo: 2,
+      kind: 'work',
+      targetReps: 10,
+      actualReps: 9,
+    })
+
+    const totals = await getStepTotals()
+
+    // ウォームアップのレップスも、実際にやった回数として積み上がる
+    expect(totals.get('pushup-01')).toMatchObject({ totalReps: 20, workReps: 0, sets: 1 })
+    expect(totals.get('pushup-03')).toMatchObject({
+      totalReps: 21,
+      workReps: 21,
+      sets: 2,
+      bestSet: 12,
+    })
+  })
+
+  it('日付ごとのボリュームを集計する', async () => {
+    const s = await startSession('new_blood')
+    await recordSet({
+      sessionId: s.id,
+      stepId: 'pushup-01',
+      chapterId: 'pushup',
+      setNo: 1,
+      kind: 'work',
+      targetReps: 10,
+      actualReps: 10,
+    })
+    await recordSet({
+      sessionId: s.id,
+      stepId: 'pushup-01',
+      chapterId: 'pushup',
+      setNo: 2,
+      kind: 'work',
+      targetReps: 10,
+      actualReps: 8,
+    })
+
+    const volume = await getDailyVolume()
+    expect(volume.get(todayKey())).toEqual({ sets: 2, reps: 18 })
+  })
+
+  it('記録がなければ空の集計になる', async () => {
+    expect((await getStepTotals()).size).toBe(0)
+    expect((await getDailyVolume()).size).toBe(0)
   })
 })

@@ -65,7 +65,8 @@ export function Home() {
   const hasMenu = !!plan && !plan.isRestDay && plan.exercises.length > 0
 
   return (
-    <div className="pb-28">
+    // 固定表示の「トレーニング開始」(約96px) とタブバー(56px) の両方を避ける高さ
+    <div className="pb-[calc(10rem+env(safe-area-inset-bottom))]">
       <header className="px-4 pt-4 pb-3">
         <p className="text-[11px] tracking-[0.2em] text-amber-500/80">
           {plan?.routineName ?? 'ルーチン未設定'}
@@ -242,9 +243,14 @@ export function Home() {
           <button
             type="button"
             onClick={() => setPicking(true)}
-            className="w-full h-12 rounded-lg border border-white/15 text-sm text-white/70"
+            className={
+              hasMenu
+                ? 'w-full h-12 rounded-lg border border-white/15 text-sm text-white/70'
+                : // 休息日はこれが唯一の導線になるので、主ボタンとして目立たせる
+                  'w-full h-16 rounded-xl bg-amber-500 text-black text-lg font-bold active:bg-amber-400'
+            }
           >
-            種目を自分で選んでやる
+            {hasMenu ? '別の種目も追加してやる' : '種目を選んでトレーニングする'}
           </button>
         )}
       </section>
@@ -273,9 +279,10 @@ export function Home() {
         </ul>
       </section>
 
-      {/* 親指が届く位置に固定 */}
+      {/* 親指が届く位置に固定。タブバー(h-14)の真上に置く。
+          bottom-0 にするとタブバーと重なって隠れてしまう */}
       {hasMenu && (
-        <div className="fixed inset-x-0 bottom-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-concrete-950 via-concrete-950 to-transparent">
+        <div className="fixed inset-x-0 z-20 px-4 pt-6 pb-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-concrete-950 via-concrete-950 to-transparent">
           <button
             type="button"
             onClick={() => navigate('/workout')}

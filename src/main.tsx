@@ -9,6 +9,7 @@ import { Home } from './screens/Home'
 import { Library } from './screens/Library'
 import { Progress } from './screens/Progress'
 import { Settings } from './screens/Settings'
+import { UiLab } from './screens/UiLab'
 import { Workout } from './screens/Workout'
 import './index.css'
 
@@ -26,8 +27,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <Routes>
-        {/* アニメ確認用。角度データは暗号化対象外なので解錠不要 */}
+        {/* 開発用。書籍コンテンツを含まないので解錠不要 */}
         <Route path="/anim" element={<AnimLab />} />
+        <Route path="/ui" element={<UiLab />} />
 
         <Route
           element={
