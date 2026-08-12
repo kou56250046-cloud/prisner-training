@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-concrete-950: #0a0908;
+  --color-concrete-900: #141210;
+  --color-concrete-800: #1e1b18;
+  --color-concrete-700: #2b2724;
+  --color-bone: #f5f0e8;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-concrete-950);
+  color: var(--color-bone);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  /* iOS でホーム画面から起動したときのセーフエリア */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* トレーニング中の誤操作を防ぐ */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}

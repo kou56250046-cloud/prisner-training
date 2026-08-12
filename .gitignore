@@ -1,0 +1,29 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# エディタ/エージェント側のローカル設定。実際のスタックは README.md が正
+.claude/
+
+# ---- 書籍由来の平文コンテンツは絶対にコミットしない ----
+# public リポジトリで運用するため、本文は暗号化済みの public/content.enc だけを
+# コミットする。平文が入る場所をまとめてここで塞ぐ。
+content/source/
+*.plain.json
+.content-passphrase
+
+# 原本のスキャン画像
+scans/
+*.jpg
+*.jpeg
+*.png
+!public/*.png
+
+# OCR テキスト。ファイル名が NFD 正規化されていて名前指定では確実に弾けないため、
+# 「リポジトリ直下の .txt はすべて無視」という形にする（public/robots.txt は対象外）
+/*.txt
