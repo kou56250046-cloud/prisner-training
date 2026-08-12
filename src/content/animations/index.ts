@@ -1,5 +1,6 @@
 import type { Animation } from '@/anim/types'
 import { pushupAnimations } from './pushup'
+import { squatAnimations } from './squat'
 
 /**
  * 全種目のアニメーション。ステップIDで引く。
@@ -9,4 +10,5 @@ import { pushupAnimations } from './pushup'
  */
 export const animations: Record<string, Animation> = {
   ...pushupAnimations,
+  ...squatAnimations,
 }

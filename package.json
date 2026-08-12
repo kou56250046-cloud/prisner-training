@@ -10,6 +10,7 @@
     "content": "tsx scripts/build-content.ts",
     "content:extract": "tsx scripts/extract-content.ts",
     "icons": "tsx scripts/build-icons.ts",
+    "check:deploy": "tsx scripts/check-deploy.ts",
     "verify": "tsx scripts/verify-anim.ts",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

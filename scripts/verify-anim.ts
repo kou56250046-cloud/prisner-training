@@ -12,7 +12,7 @@
 import { buildTimeline } from '../src/anim/interpolate'
 import { resolvePose } from '../src/anim/rig'
 import type { Animation, Skeleton } from '../src/anim/types'
-import { pushupAnimations } from '../src/content/animations/pushup'
+import { animations } from '../src/content/animations'
 
 const r1 = (n: number) => Math.round(n * 10) / 10
 
@@ -47,13 +47,25 @@ function verify(anim: Animation): Issue[] {
   const hasGround = anim.props.some((p) => p.kind === 'ground')
   const N = 60
 
-  // 接地させた手首/足首は、動作中ずっと同じ位置にいなければならない
-  const pinnedWrist = anim.keyframes.every((k) => k.pose.armNear.mode === 'ik')
-  const wristPts: { x: number; y: number }[] = []
+  // 全キーフレームで同じ位置にある関節は「接地点」とみなす。
+  // 接地点が動作の途中で動いたら、そのフォームは物理的にありえない。
+  // FK で角度だけを補間すると簡単にこれが起きるので、機械的に検出する。
+  const kfSkeletons = anim.keyframes.map((k) => resolvePose(k.pose))
+  const pinned = allPoints(kfSkeletons[0]!)
+    .map((_, idx) => idx)
+    .filter((idx) => {
+      const first = allPoints(kfSkeletons[0]!)[idx]!.p
+      return kfSkeletons.every((s) => {
+        const p = allPoints(s)[idx]!.p
+        return Math.hypot(p.x - first.x, p.y - first.y) < 0.5
+      })
+    })
+  const pinnedTracks = new Map<number, { x: number; y: number }[]>(pinned.map((i) => [i, []]))
 
   for (let i = 0; i <= N; i++) {
     const s = resolvePose(tl.sample((i / N) * tl.totalMs).pose)
-    wristPts.push(s.armNear.end)
+    const pts = allPoints(s)
+    for (const idx of pinned) pinnedTracks.get(idx)!.push(pts[idx]!.p)
 
     if (hasGround) {
       for (const { name, p } of allPoints(s)) {
@@ -78,22 +90,26 @@ function verify(anim: Animation): Issue[] {
     }
   }
 
-  if (pinnedWrist) {
-    const xs = wristPts.map((p) => p.x)
-    const ys = wristPts.map((p) => p.y)
-    const drift = Math.max(
-      Math.max(...xs) - Math.min(...xs),
-      Math.max(...ys) - Math.min(...ys),
-    )
-    if (drift > 0.5) {
-      issues.push({ anim: anim.id, msg: `接地した手首が ${r1(drift)} ずれている` })
+  const names = allPoints(kfSkeletons[0]!)
+  for (const idx of pinned) {
+    const track = pinnedTracks.get(idx)!
+    const first = track[0]!
+    const drift = Math.max(...track.map((p) => Math.hypot(p.x - first.x, p.y - first.y)))
+    // 骨盤を根とした順運動学なので、床についた肩などは補間中にわずかに動く。
+    // 身長100に対して1.5未満のズレは目で見てもわからないため許容し、
+    // それを超えるものだけを「接地が破綻している」として弾く。
+    if (drift > 1.5) {
+      issues.push({
+        anim: anim.id,
+        msg: `接地点であるはずの${names[idx]!.name}が動作中に ${r1(drift)} ずれている（IK でピン留めすべき）`,
+      })
     }
   }
 
   return issues
 }
 
-const all: Record<string, Animation> = { ...pushupAnimations }
+const all: Record<string, Animation> = animations
 const issues: Issue[] = []
 
 for (const [id, anim] of Object.entries(all)) {
