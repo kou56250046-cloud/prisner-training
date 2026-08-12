@@ -165,8 +165,166 @@ export const pullup03: Animation = {
   ],
 }
 
+/* ------------------------------------------------------------------
+ * ステップ4以降はすべて「バーにぶら下がる」姿勢が土台。
+ * バーを (60, 108) に固定し、腕は IK でバーに繋ぐ。
+ * 膝を曲げて足首を後ろで組む姿勢は全ステップ共通なので定数にしてある。
+ * ---------------------------------------------------------------- */
+
+const HANG_CAMERA = { minX: 18, maxX: 106, minY: -6, maxY: 126 }
+const BAR = { x: 60, y: 108 }
+/** 膝を曲げ、体の後ろで足首を組む。全ステップ共通。すねは後ろ斜め上へ */
+const LEGS_TUCKED = { mode: 'fk', upper: -95, lower: 140, ext: 150 } as const
+/** 腕を伸ばしきってぶら下がった位置 */
+const HANG_PELVIS = { x: 60, y: 41 }
+/** 顎がバーを越えた位置 */
+const TOP_PELVIS = { x: 58, y: 63 }
+/** 肘が直角。上腕が床とほぼ平行になる高さ */
+const HALF_PELVIS = { x: 60, y: 50.7 }
+/** バーを握る腕。肘は前方に出る */
+const ARM_ON_BAR = { mode: 'ik', target: BAR, bend: -1, ext: 90 } as const
+/**
+ * 腰のくびれに当てた手。ぶら下がりでは体幹が垂直なので、腕は真下へ下ろす。
+ * うつ伏せ種目と同じ角度を使うと、腕が真横に突き出てしまう。
+ */
+const HAND_ON_WAIST = { mode: 'fk', upper: -90, lower: -80, ext: -80 } as const
+
+type HangOpts = {
+  /** ぶら下がりの開始位置。ハーフ系は途中から始まる */
+  startPelvis: { x: number; y: number }
+  armFar?: (top: boolean) => NonNullable<Animation['keyframes'][number]['pose']['armFar']>
+}
+
+/** ぶら下がって引き上げ、また下ろすまでの往復キーフレーム */
+function pullupKeyframes({ startPelvis, armFar }: HangOpts): Animation['keyframes'] {
+  const pose = (pelvis: { x: number; y: number }, top: boolean) => ({
+    pelvis,
+    torso: 90,
+    head: top ? 95 : 88,
+    armNear: ARM_ON_BAR,
+    legNear: LEGS_TUCKED,
+    ...(armFar ? { armFar: armFar(top) } : {}),
+  })
+  return [
+    { t: 0, label: 'スタート', hold: 500, pose: pose(startPelvis, false) },
+    { t: 0.5, label: 'フィニッシュ', hold: 400, pose: pose(TOP_PELVIS, true) },
+    { t: 1, pose: pose(startPelvis, false) },
+  ]
+}
+
+/** ステップ4 ハーフ・プルアップ（p.160-161） */
+export const pullup04: Animation = {
+  id: 'pullup-04',
+  durationMs: 4000,
+  camera: HANG_CAMERA,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    'ほとんど直角に曲げた腕（上腕が床と平行）で体重を支えるところから始める。動作を通じて脚は固定したまま。',
+  keyframes: pullupKeyframes({ startPelvis: HALF_PELVIS }),
+}
+
+/** ステップ5 フル・プルアップ（p.162-163） */
+export const pullup05: Animation = {
+  id: 'pullup-05',
+  durationMs: 4500,
+  camera: HANG_CAMERA,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    '2秒で上げ、2秒で下ろし、トップとボトムで1秒静止する。爆発的にやらない。筋肉はスムーズな動作の中でつくられる。',
+  keyframes: pullupKeyframes({ startPelvis: HANG_PELVIS }),
+}
+
+/** ステップ6 クローズ・プルアップ（p.164-165） */
+export const pullup06: Animation = {
+  id: 'pullup-06',
+  durationMs: 4500,
+  camera: HANG_CAMERA,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    '両手を隣り合わせにくっつけて握る（真横からでは手の間隔が見えない）。関節が痛むなら最大10センチまで離してよい。',
+  keyframes: pullupKeyframes({ startPelvis: HANG_PELVIS }),
+}
+
+/** ステップ7 アンイーブン・プルアップ（p.166-167） */
+export const pullup07: Animation = {
+  id: 'pullup-07',
+  durationMs: 4500,
+  camera: HANG_CAMERA,
+  asymmetric: true,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    '片手でバーを握り、その手首をもう一方の手でつかむ。バーを握った腕がほぼまっすぐ、手首を握った腕はそれより曲がる。肘は体幹の真上。',
+  keyframes: pullupKeyframes({
+    startPelvis: HANG_PELVIS,
+    // 空いている手はバーを握った手首をつかむ
+    armFar: () => ({ mode: 'ik', target: { x: 57, y: 103 }, bend: -1, ext: 90 }),
+  }),
+}
+
+/** ステップ8 ハーフ・ワンアーム・プルアップ（p.168-169） */
+export const pullup08: Animation = {
+  id: 'pullup-08',
+  durationMs: 4000,
+  camera: HANG_CAMERA,
+  asymmetric: true,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    '肘が直角、上腕が床と平行の位置から始める。空いている手は腰のくびれなど、じゃまにならないところへ。腕を伸ばしきらないので、伸展域を鍛える種目と併用すること。',
+  keyframes: pullupKeyframes({ startPelvis: HALF_PELVIS, armFar: () => HAND_ON_WAIST }),
+}
+
+/** ステップ9 アシステッド・ワンアーム・プルアップ（p.170-171） */
+export const pullup09: Animation = {
+  id: 'pullup-09',
+  durationMs: 5000,
+  camera: HANG_CAMERA,
+  asymmetric: true,
+  props: [
+    { kind: 'ground' },
+    { kind: 'bar', ...BAR },
+    // バーにかけたタオル
+    { kind: 'block', x: 67, y: 72, w: 2.5, h: 36 },
+  ],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    'タオルは目の高さでつかむ。肘が直角になるまでの前半だけタオルを引いて助け、そこから先は腕の力だけで顎をバーまで運ぶ。下でつかむほど助けが弱くなる。',
+  keyframes: pullupKeyframes({
+    startPelvis: HANG_PELVIS,
+    // 引き上げの前半でタオルを使い、上では手を離している
+    armFar: (top) =>
+      top
+        ? HAND_ON_WAIST
+        : { mode: 'ik', target: { x: 68, y: 74 }, bend: -1, ext: 90 },
+  }),
+}
+
+/** マスターステップ ワンアーム・プルアップ（p.172-173） */
+export const pullup10: Animation = {
+  id: 'pullup-10',
+  durationMs: 5000,
+  camera: HANG_CAMERA,
+  asymmetric: true,
+  props: [{ kind: 'ground' }, { kind: 'bar', ...BAR }],
+  guides: [{ kind: 'trail', joint: 'shoulder' }],
+  caption:
+    '引き上げる腕はごくわずかに曲げるだけで、ほとんどまっすぐ。できるだけ弾みをつけずに顎をバーの高さまで運ぶ。',
+  keyframes: pullupKeyframes({ startPelvis: HANG_PELVIS, armFar: () => HAND_ON_WAIST }),
+}
+
 export const pullupAnimations: Record<string, Animation> = {
   'pullup-01': pullup01,
   'pullup-02': pullup02,
   'pullup-03': pullup03,
+  'pullup-04': pullup04,
+  'pullup-05': pullup05,
+  'pullup-06': pullup06,
+  'pullup-07': pullup07,
+  'pullup-08': pullup08,
+  'pullup-09': pullup09,
+  'pullup-10': pullup10,
 }
