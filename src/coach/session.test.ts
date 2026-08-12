@@ -12,7 +12,7 @@ import {
 } from '@/db/queries'
 import { db } from '@/db/schema'
 import { canPromote } from './rules'
-import { buildSessionPlan, flattenPlan, resolveTarget } from './session'
+import { buildSessionPlan, flattenPlan, nextTrainingDay, resolveTarget } from './session'
 
 /** テスト用の最小コンテンツ。プッシュアップの3ステップだけ持つ */
 function makeContent(): Content {
@@ -249,6 +249,36 @@ describe('記録フロー', () => {
 
     const history = await getStepHistory(step.id)
     expect(canPromote(history.map((h) => h.reps), step.standards)).toBe(false)
+  })
+
+  it('種目を指定すれば休息日でもメニューを組める', async () => {
+    const content = makeContent()
+    const progress = await ensureProgress()
+    // 火曜は「新入り」では休息日
+    const plan = await buildSessionPlan(ROUTINE, 'tue', progress, content, {
+      chapters: ['pushup'],
+    })
+
+    expect(plan.adHoc).toBe(true)
+    expect(plan.exercises).toHaveLength(1)
+    expect(plan.exercises[0]!.chapterId).toBe('pushup')
+    // ウォームアップも通常どおり組まれる
+    expect(plan.exercises[0]!.warmup).toHaveLength(2)
+  })
+
+  it('次の実施日を正しく返す', () => {
+    // 月曜だけのルーチンで、水曜から見た次の実施日は5日後の月曜
+    expect(nextTrainingDay(ROUTINE, 'wed')).toEqual({ weekday: 'mon', inDays: 5 })
+    // 月曜当日から見ると、次は7日後の月曜
+    expect(nextTrainingDay(ROUTINE, 'mon')).toEqual({ weekday: 'mon', inDays: 7 })
+  })
+
+  it('実施日が1日もないルーチンでは次の実施日が無い', () => {
+    const empty: Routine = {
+      ...ROUTINE,
+      schedule: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+    }
+    expect(nextTrainingDay(empty, 'wed')).toBeNull()
   })
 
   it('進行中のセッションがあれば新しく作らず再開する', async () => {

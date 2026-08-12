@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { AnimPlayer } from '@/anim/AnimPlayer'
 import { canPromote } from '@/coach/rules'
 import { buildSessionPlan, flattenPlan, type PlannedSet, type SessionPlan } from '@/coach/session'
 import { animations } from '@/content/animations'
 import { useContent } from '@/content/ContentProvider'
+import type { ChapterId } from '@/content/types'
 import {
   abandonSession,
   addCoachEvent,
@@ -26,6 +27,9 @@ type Phase = 'loading' | 'running' | 'resting' | 'rpe' | 'done' | 'rest-day'
 export function Workout() {
   const content = useContent()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // 「種目を自分で選んでやる」から来た場合は、ルーチンの予定より優先する
+  const picked = params.get('chapters')
 
   const [plan, setPlan] = useState<SessionPlan | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -50,7 +54,12 @@ export function Workout() {
       setRestSeconds(settings.restSeconds)
       setWakeLockOn(settings.wakeLock)
 
-      const p = await buildSessionPlan(routine, weekdayKey(), progress, content)
+      const chapters = picked
+        ? (picked.split(',').filter(Boolean) as ChapterId[])
+        : undefined
+      const p = await buildSessionPlan(routine, weekdayKey(), progress, content, {
+        ...(chapters ? { chapters } : {}),
+      })
       setPlan(p)
       if (p.isRestDay || p.exercises.length === 0) {
         setPhase('rest-day')
@@ -70,7 +79,7 @@ export function Workout() {
       setReps(all[resumeAt]?.targetReps ?? 0)
       setPhase('running')
     })()
-  }, [content])
+  }, [content, picked])
 
   const current = queue[index]
   const anim = current ? animations[current.stepId] : undefined

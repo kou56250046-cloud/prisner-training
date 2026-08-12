@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { buildSessionPlan, type SessionPlan } from '@/coach/session'
+import {
+  buildSessionPlan,
+  nextTrainingDay,
+  WEEKDAY_LABEL,
+  type SessionPlan,
+} from '@/coach/session'
+import type { ChapterId } from '@/content/types'
 import { useContent } from '@/content/ContentProvider'
 import {
   ackEvent,
+  countSessionsInRange,
   currentStreak,
   ensureProgress,
   getOpenSession,
@@ -22,23 +29,33 @@ export function Home() {
   const [events, setEvents] = useState<CoachEvent[]>([])
   const [resuming, setResuming] = useState(false)
   const [ready, setReady] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<ChapterId[]>([])
+  const [nextDay, setNextDay] = useState<{ weekday: string; inDays: number } | null>(null)
+  const [totalSessions, setTotalSessions] = useState(0)
 
   useEffect(() => {
     void (async () => {
-      const [settings, prog, s, evts, open] = await Promise.all([
+      const [settings, prog, s, evts, open, done] = await Promise.all([
         getSettings(),
         ensureProgress(),
         currentStreak(),
         unacknowledgedEvents(),
         getOpenSession(),
+        countSessionsInRange(0),
       ])
       setProgress(prog)
+      setTotalSessions(done)
       setStreak(s)
       setEvents(evts)
       setResuming(!!open)
 
       const routine = content.routines.find((r) => r.id === settings.routineId)
-      if (routine) setPlan(await buildSessionPlan(routine, weekdayKey(), prog, content))
+      if (routine) {
+        setPlan(await buildSessionPlan(routine, weekdayKey(), prog, content))
+        const nd = nextTrainingDay(routine, weekdayKey())
+        if (nd) setNextDay({ weekday: WEEKDAY_LABEL[nd.weekday], inDays: nd.inDays })
+      }
       setReady(true)
     })()
   }, [content])
@@ -58,6 +75,37 @@ export function Home() {
           <p className="text-xs text-white/50 mt-1">連続 {streak} 日</p>
         )}
       </header>
+
+      {/* まだ1回も記録していない人向け。記録が始まったら自動的に消える */}
+      {totalSessions === 0 && (
+        <section className="px-4 mb-4">
+          <div className="rounded-xl border border-white/15 p-4">
+            <p className="text-sm font-bold mb-2">使い方</p>
+            <ol className="space-y-1.5 text-[12px] text-white/70 leading-relaxed">
+              <li>
+                <strong className="text-white/85">1.</strong>{' '}
+                下の「トレーニング開始」を押す。休息日なら「種目を自分で選んでやる」から始められます。
+              </li>
+              <li>
+                <strong className="text-white/85">2.</strong>{' '}
+                ウォームアップ2本 → ワークセットの順に進みます。内容は自動で決まるので考える必要はありません。
+              </li>
+              <li>
+                <strong className="text-white/85">3.</strong>{' '}
+                各セットで大きな ＋ − ボタンで回数を入れ、「このセットを記録」を押す。
+              </li>
+              <li>
+                <strong className="text-white/85">4.</strong>{' '}
+                最後に「今日のきつさ」を選んで終了。上級者の標準を2回続けて達成すると自動で進級します。
+              </li>
+            </ol>
+            <p className="text-[11px] text-white/40 mt-3 leading-relaxed">
+              書籍は「どれだけ筋力があってもビッグ6すべてステップ1から始めろ」と明言しています。
+              簡単すぎると感じても、まずはステップ1から。
+            </p>
+          </div>
+        </section>
+      )}
 
       {events.length > 0 && (
         <section className="px-4 mb-4 space-y-2">
@@ -112,12 +160,92 @@ export function Home() {
             ))}
           </ul>
         ) : (
-          <div className="rounded-xl border border-white/12 p-6 text-center">
+          <div className="rounded-xl border border-white/12 p-5">
             <p className="font-bold mb-1">今日は休息日</p>
             <p className="text-sm text-white/55 leading-relaxed">
               筋肉は休んでいる間に強くなる。書籍のルーチンが定めた休みも、プログラムの一部です。
+              {nextDay && (
+                <>
+                  <br />
+                  次の実施日は <strong className="text-white/80">{nextDay.weekday}曜日</strong>
+                  （{nextDay.inDays}日後）。
+                </>
+              )}
             </p>
           </div>
+        )}
+      </section>
+
+      {/* ルーチンの予定に関係なく、自分で種目を選んで記録できる逃げ道。
+          休息日にアプリを開いても何もできない、という状態をつくらない */}
+      <section className="px-4 mt-4">
+        {picking ? (
+          <div className="rounded-xl border border-white/15 p-4">
+            <p className="text-sm font-bold mb-1">やる種目を選ぶ</p>
+            <p className="text-[11px] text-white/45 mb-3 leading-relaxed">
+              ウォームアップと目標レップスは、選んだ種目の現在ステップから自動で決まります。
+            </p>
+            <ul className="space-y-2 mb-4">
+              {content.chapters.map((c) => {
+                const on = picked.includes(c.id)
+                const p = progress.find((x) => x.chapterId === c.id)
+                const has = (content.stepsByChapter.get(c.id) ?? []).some(
+                  (s) => s.stepNo === (p?.currentStep ?? 1),
+                )
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      disabled={!has}
+                      onClick={() =>
+                        setPicked((prev) =>
+                          prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id],
+                        )
+                      }
+                      className={`w-full flex items-center justify-between gap-2 h-12 px-3 rounded-lg border text-sm ${
+                        on
+                          ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+                          : 'border-white/12 text-white/70'
+                      } disabled:opacity-30`}
+                    >
+                      <span>{c.name}</span>
+                      <span className="text-[11px] tabular-nums">
+                        {has ? `STEP ${p?.currentStep ?? 1}` : '未収録'}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPicking(false)
+                  setPicked([])
+                }}
+                className="h-12 px-4 rounded-lg border border-white/15 text-sm"
+              >
+                やめる
+              </button>
+              <button
+                type="button"
+                disabled={picked.length === 0}
+                onClick={() => navigate(`/workout?chapters=${picked.join(',')}`)}
+                className="flex-1 h-12 rounded-lg bg-amber-500 text-black font-bold disabled:opacity-30"
+              >
+                このメニューで開始
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            className="w-full h-12 rounded-lg border border-white/15 text-sm text-white/70"
+          >
+            種目を自分で選んでやる
+          </button>
         )}
       </section>
 

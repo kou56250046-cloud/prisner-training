@@ -36,6 +36,8 @@ export type SessionPlan = {
   exercises: PlannedExercise[]
   /** 休息日なら true */
   isRestDay: boolean
+  /** ルーチンの予定ではなく、自分で種目を選んだセッション */
+  adHoc?: boolean
 }
 
 /**
@@ -68,9 +70,15 @@ export async function buildSessionPlan(
   weekday: Weekday,
   progress: Progress[],
   content: Content,
-  opts: { extraWarmup?: boolean } = {},
+  opts: { extraWarmup?: boolean; chapters?: ChapterId[] } = {},
 ): Promise<SessionPlan> {
-  const slots = routine.schedule[weekday] ?? []
+  // 種目を明示されたら、ルーチンの予定を無視してその種目でメニューを組む。
+  // 休息日でも体を動かしたいときや、書籍のルーチンから外れて
+  // 一種目だけやりたいときのための逃げ道。
+  const slots: { chapterId: ChapterId; sets: [number, number]; note?: string }[] = opts.chapters
+    ? opts.chapters.map((chapterId) => ({ chapterId, sets: [2, 3] as [number, number] }))
+    : (routine.schedule[weekday] ?? [])
+
   const byChapter = new Map(progress.map((p) => [p.chapterId, p]))
   const exercises: PlannedExercise[] = []
 
@@ -129,11 +137,33 @@ export async function buildSessionPlan(
 
   return {
     routineId: routine.id,
-    routineName: routine.name,
+    routineName: opts.chapters ? '自分で選んだメニュー' : routine.name,
     weekday,
     exercises,
     isRestDay: slots.length === 0,
+    ...(opts.chapters ? { adHoc: true } : {}),
   }
+}
+
+/** ルーチンの次の実施日を返す。休息日にいつ再開するのかを示すため */
+export function nextTrainingDay(routine: Routine, from: Weekday): { weekday: Weekday; inDays: number } | null {
+  const order: Weekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const start = order.indexOf(from)
+  for (let i = 1; i <= 7; i++) {
+    const w = order[(start + i) % 7]!
+    if ((routine.schedule[w] ?? []).length > 0) return { weekday: w, inDays: i }
+  }
+  return null
+}
+
+export const WEEKDAY_LABEL: Record<Weekday, string> = {
+  sun: '日',
+  mon: '月',
+  tue: '火',
+  wed: '水',
+  thu: '木',
+  fri: '金',
+  sat: '土',
 }
 
 /** 実行順に並べたセットの列。ウォームアップ → ワークセット を種目ごとに繰り返す */
