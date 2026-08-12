@@ -12,6 +12,7 @@
     "icons": "tsx scripts/build-icons.ts",
     "check:deploy": "tsx scripts/check-deploy.ts",
     "verify": "tsx scripts/verify-anim.ts",
+    "render": "tsx scripts/render-anim.ts",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

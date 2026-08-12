@@ -70,6 +70,7 @@ export function AnimPlayer({ anim, compact }: { anim: Animation; compact?: boole
               guides={anim.guides}
               trails={trails}
               hideFar={anim.hideFar}
+              asymmetric={anim.asymmetric}
               maxHeightPx={maxH}
             />
             {frame.label && (
@@ -89,6 +90,7 @@ export function AnimPlayer({ anim, compact }: { anim: Animation; compact?: boole
                   camera={anim.camera}
                   guides={anim.guides}
                   hideFar={anim.hideFar}
+                  asymmetric={anim.asymmetric}
                   maxHeightPx={maxH}
                 />
                 <span className="absolute top-2 left-3 text-xs tracking-widest text-amber-400/90">
@@ -99,6 +101,13 @@ export function AnimPlayer({ anim, compact }: { anim: Animation; compact?: boole
           </div>
         )}
       </div>
+
+      {anim.caption && (
+        <p className="mt-2 text-[12px] leading-relaxed text-amber-400/85 flex gap-1.5">
+          <span aria-hidden>※</span>
+          <span>{anim.caption}</span>
+        </p>
+      )}
 
       {/* シークバー */}
       {mode === 'play' && (

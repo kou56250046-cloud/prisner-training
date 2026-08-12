@@ -11,6 +11,8 @@ type Props = {
   /** 参考表示するゴースト姿勢（スタート位置の残像など） */
   ghost?: Skeleton
   hideFar?: boolean
+  /** 奥側の手足を濃く描く（左右非対称の種目） */
+  asymmetric?: boolean
   className?: string
   /** 描画の最大高さ(px)。カメラの縦横比を保ったまま収める */
   maxHeightPx?: number
@@ -18,6 +20,8 @@ type Props = {
 
 const NEAR = '#f5f0e8'
 const FAR = 'rgba(245, 240, 232, 0.28)'
+/** 左右非対称の種目で、奥側の手足も「もう一本の腕/脚」として読み取れる濃さ */
+const FAR_STRONG = 'rgba(245, 240, 232, 0.62)'
 const ACCENT = '#e8a33d'
 const STRUCTURE = '#4a4540'
 
@@ -29,6 +33,7 @@ export function StickFigure({
   trails,
   ghost,
   hideFar,
+  asymmetric,
   className,
   maxHeightPx = 340,
 }: Props) {
@@ -84,7 +89,7 @@ export function StickFigure({
         ))}
 
         {ghost && <Figure skeleton={ghost} hideFar color="rgba(245,240,232,0.16)" ghost />}
-        <Figure skeleton={skeleton} hideFar={hideFar} />
+        <Figure skeleton={skeleton} hideFar={hideFar} asymmetric={asymmetric} />
 
         <GuideLayer guides={guides} camera={camera} skeleton={skeleton} />
       </g>
@@ -98,16 +103,18 @@ export function StickFigure({
 function Figure({
   skeleton,
   hideFar,
+  asymmetric,
   color,
   ghost,
 }: {
   skeleton: Skeleton
   hideFar?: boolean
+  asymmetric?: boolean
   color?: string
   ghost?: boolean
 }) {
   const near = color ?? NEAR
-  const far = color ?? FAR
+  const far = color ?? (asymmetric ? FAR_STRONG : FAR)
 
   return (
     <g strokeLinecap="round" strokeLinejoin="round" fill="none">
