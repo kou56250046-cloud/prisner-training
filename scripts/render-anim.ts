@@ -80,7 +80,7 @@ function frameSvg(anim: Animation, s: Skeleton): string {
 <rect x="${c.minX}" y="${c.minY}" width="${c.maxX - c.minX}" height="${c.maxY - c.minY}" fill="#141210"/>
 <g transform="translate(0,${K}) scale(1,-1)">
 ${props}${guides}${far}
-<line x1="${s.pelvis.x}" y1="${s.pelvis.y}" x2="${s.shoulder.x}" y2="${s.shoulder.y}" stroke="${BONE}" stroke-width="5.5" stroke-linecap="round"/>
+<path d="M ${s.pelvis.x} ${s.pelvis.y} Q ${s.spineControl.x} ${s.spineControl.y} ${s.shoulder.x} ${s.shoulder.y}" stroke="${BONE}" stroke-width="5.5" stroke-linecap="round" fill="none"/>
 <line x1="${s.shoulder.x}" y1="${s.shoulder.y}" x2="${s.head.x}" y2="${s.head.y}" stroke="${BONE}" stroke-width="3.5" stroke-linecap="round"/>
 ${limbPath(s.legNear, BONE, 4.5)}${limbPath(s.armNear, BONE, 4)}
 <circle cx="${s.head.x}" cy="${s.head.y}" r="${DIM.headR}" fill="#141210" stroke="${BONE}" stroke-width="3"/>

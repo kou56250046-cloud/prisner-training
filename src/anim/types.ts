@@ -33,6 +33,12 @@ export type Pose = {
   torso: number
   /** 首から頭の絶対角（肩 → 頭の中心） */
   head: number
+  /**
+   * 背骨の反り。骨盤→肩の直線から、どれだけ膨らませるか（単位）。
+   * 正で進行方向の左（＝反時計回り90度）へ膨らむ。
+   * ブリッジのように背中を弓なりにする種目で使う。0 なら直線。
+   */
+  spineArch?: number
   /** 手前側の腕（濃く描く） */
   armNear: LimbPose
   /** 奥側の腕。省略時は armNear と同じ姿勢 */
@@ -110,6 +116,8 @@ export type Skeleton = {
   shoulder: Vec2
   head: Vec2
   chest: Vec2
+  /** 背骨を2次ベジェで描くときの制御点。反りが0なら中点に一致する */
+  spineControl: Vec2
   armNear: ResolvedLimb
   armFar: ResolvedLimb
   legNear: ResolvedLimb

@@ -111,13 +111,31 @@ export function resolveLimb(
   return { root, mid, end, tip }
 }
 
+/** 2次ベジェ上の点 */
+export function quadPoint(a: Vec2, c: Vec2, b: Vec2, t: number): Vec2 {
+  const u = 1 - t
+  return {
+    x: u * u * a.x + 2 * u * t * c.x + t * t * b.x,
+    y: u * u * a.y + 2 * u * t * c.y + t * t * b.y,
+  }
+}
+
 /** Pose を描画可能な骨格に解決する */
 export function resolvePose(pose: Pose): Skeleton {
   const pelvis = pose.pelvis
   const shoulder = step(pelvis, pose.torso, DIM.torso)
   const head = step(shoulder, pose.head, DIM.neck)
-  // 胸の位置（「胸が床からこぶしひとつ」などの基準に使う）
-  const chest = step(pelvis, pose.torso, DIM.torso * 0.72)
+
+  // 背骨の反り。制御点を骨盤→肩の垂直方向にずらす。
+  // ベジェは制御点の半分しか膨らまないので、指定値の2倍を制御点に与える
+  const arch = pose.spineArch ?? 0
+  const perp = dir(pose.torso + 90)
+  const mid = step(pelvis, pose.torso, DIM.torso * 0.5)
+  const spineControl = add(mid, scale(perp, arch * 2))
+
+  // 胸の位置（「胸が床からこぶしひとつ」などの基準に使う）。
+  // 反っているときは背骨の曲線上を取る
+  const chest = quadPoint(pelvis, spineControl, shoulder, 0.72)
 
   const armFarPose = pose.armFar ?? pose.armNear
   const legFarPose = pose.legFar ?? pose.legNear
@@ -127,6 +145,7 @@ export function resolvePose(pose: Pose): Skeleton {
     shoulder,
     head,
     chest,
+    spineControl,
     armNear: resolveLimb(shoulder, pose.armNear, DIM.upperArm, DIM.forearm, DIM.hand),
     armFar: resolveLimb(shoulder, armFarPose, DIM.upperArm, DIM.forearm, DIM.hand),
     legNear: resolveLimb(pelvis, pose.legNear, DIM.thigh, DIM.shin, DIM.foot),

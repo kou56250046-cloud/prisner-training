@@ -130,14 +130,12 @@ function Figure({
         </g>
       )}
 
-      {/* 体幹 */}
-      <line
-        x1={skeleton.pelvis.x}
-        y1={skeleton.pelvis.y}
-        x2={skeleton.shoulder.x}
-        y2={skeleton.shoulder.y}
+      {/* 体幹。ブリッジのように背骨が反る種目があるので、直線ではなく曲線で描く */}
+      <path
+        d={`M ${skeleton.pelvis.x} ${skeleton.pelvis.y} Q ${skeleton.spineControl.x} ${skeleton.spineControl.y} ${skeleton.shoulder.x} ${skeleton.shoulder.y}`}
         stroke={near}
         strokeWidth={5.5}
+        fill="none"
       />
       {/* 首 */}
       <line

@@ -62,6 +62,7 @@ export function lerpPose(a: Pose, b: Pose, u: number): Pose {
     pelvis,
     torso,
     head: lerpAngle(a.head, b.head, u),
+    spineArch: (a.spineArch ?? 0) + ((b.spineArch ?? 0) - (a.spineArch ?? 0)) * u,
     armNear: lerpLimb(a.armNear, b.armNear, u, shoulderA, shoulderB, DIM.upperArm, DIM.forearm),
     armFar: lerpLimb(
       a.armFar ?? a.armNear,
