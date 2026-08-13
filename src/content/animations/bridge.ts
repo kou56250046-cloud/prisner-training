@@ -339,7 +339,7 @@ const STAND: Pose = {
   torso: 90,
   head: 90,
   armNear: { mode: 'fk', upper: -85, lower: -85, ext: -85 },
-  legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: 1, ext: -30 },
+  legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: -1, ext: 180 },
 }
 
 /** 壁に手をついて反り始めた姿勢。手は頭と同じ高さ */
@@ -349,7 +349,7 @@ const WALL_HIGH: Pose = {
   head: 30,
   spineArch: 5,
   armNear: { mode: 'ik', target: { x: 107, y: 82 }, bend: 1, ext: 0 },
-  legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: 1, ext: -30 },
+  legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: -1, ext: 180 },
 }
 
 /** 壁の中ほどまで手で歩いて下りた姿勢。足も少し前へ動かす */
@@ -359,7 +359,7 @@ const WALL_MID: Pose = {
   head: -10,
   spineArch: 8,
   armNear: { mode: 'ik', target: { x: 107, y: 52 }, bend: 1, ext: 0 },
-  legNear: { mode: 'ik', target: { x: 60, y: 4 }, bend: 1, ext: -30 },
+  legNear: { mode: 'ik', target: { x: 60, y: 4 }, bend: -1, ext: 180 },
 }
 
 /** 壁の根元で床に手をついたブリッジ・ホールド */
@@ -369,7 +369,7 @@ const WALL_BOTTOM: Pose = {
   head: -55,
   spineArch: 9,
   armNear: { mode: 'ik', target: { x: 105, y: 3 }, bend: 1, ext: 180 },
-  legNear: { mode: 'ik', target: { x: 40, y: 4 }, bend: 1, ext: -30 },
+  legNear: { mode: 'ik', target: { x: 40, y: 4 }, bend: -1, ext: 180 },
 }
 
 const WALL_PROPS: Animation['props'] = [
@@ -438,7 +438,7 @@ export const bridge09: Animation = {
         spineArch: 4,
         // 腰のくびれに手を置く
         armNear: { mode: 'ik', target: { x: 73, y: 52 }, bend: 1, ext: -60 },
-        legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: -1, ext: 180 },
       },
     },
     {
@@ -451,7 +451,7 @@ export const bridge09: Animation = {
         spineArch: 8,
         // 手を肩越しに後方へ伸ばし、床へ向かう
         armNear: { mode: 'ik', target: { x: 104, y: 42 }, bend: 1, ext: 0 },
-        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: -1, ext: 180 },
       },
     },
     { t: 0.5, label: 'フィニッシュ', hold: 400, pose: WALL_BOTTOM },
@@ -464,7 +464,7 @@ export const bridge09: Animation = {
         spineArch: 8,
         // 手を肩越しに後方へ伸ばし、床へ向かう
         armNear: { mode: 'ik', target: { x: 104, y: 42 }, bend: 1, ext: 0 },
-        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: -1, ext: 180 },
       },
     },
     {
@@ -476,7 +476,7 @@ export const bridge09: Animation = {
         spineArch: 4,
         // 腰のくびれに手を置く
         armNear: { mode: 'ik', target: { x: 73, y: 52 }, bend: 1, ext: -60 },
-        legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 74, y: 4 }, bend: -1, ext: 180 },
       },
     },
     { t: 1, pose: STAND },
@@ -502,7 +502,7 @@ export const bridge10: Animation = {
         head: -5,
         spineArch: 8,
         armNear: { mode: 'ik', target: { x: 104, y: 42 }, bend: 1, ext: 0 },
-        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 62, y: 4 }, bend: -1, ext: 180 },
       },
     },
     { t: 0.5, label: 'ブリッジ・ホールド', hold: 500, pose: WALL_BOTTOM },
@@ -516,7 +516,7 @@ export const bridge10: Animation = {
         spineArch: 8,
         // 手が床から離れていく途中
         armNear: { mode: 'ik', target: { x: 100, y: 24 }, bend: 1, ext: 180 },
-        legNear: { mode: 'ik', target: { x: 50, y: 4 }, bend: 1, ext: -30 },
+        legNear: { mode: 'ik', target: { x: 50, y: 4 }, bend: -1, ext: 180 },
       },
     },
     { t: 1, label: 'フィニッシュ', hold: 400, pose: STAND },
