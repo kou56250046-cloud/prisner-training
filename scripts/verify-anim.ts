@@ -10,7 +10,7 @@
  *   npm run verify
  */
 import { buildTimeline } from '../src/anim/interpolate'
-import { resolvePose } from '../src/anim/rig'
+import { DIM, resolvePose } from '../src/anim/rig'
 import type { Animation, Skeleton } from '../src/anim/types'
 import { animations } from '../src/content/animations'
 
@@ -41,8 +41,40 @@ function allPoints(s: Skeleton) {
 
 type Issue = { anim: string; msg: string }
 
+/**
+ * IK のターゲットが手足の届く範囲にあるか。
+ * 届かない位置を指定すると、腕や脚が伸びきったまま目標に届かず、
+ * 見た目には「関節が外れている」ように見える。
+ */
+function checkReach(anim: Animation): Issue[] {
+  const out: Issue[] = []
+  for (const kf of anim.keyframes) {
+    const s = resolvePose(kf.pose)
+    const checks: [string, { x: number; y: number } | undefined, { x: number; y: number }, number][] =
+      [
+        ['腕', kf.pose.armNear.mode === 'ik' ? kf.pose.armNear.target : undefined, s.shoulder, DIM.upperArm + DIM.forearm],
+        ['奥の腕', kf.pose.armFar?.mode === 'ik' ? kf.pose.armFar.target : undefined, s.shoulder, DIM.upperArm + DIM.forearm],
+        ['脚', kf.pose.legNear.mode === 'ik' ? kf.pose.legNear.target : undefined, s.pelvis, DIM.thigh + DIM.shin],
+        ['奥の脚', kf.pose.legFar?.mode === 'ik' ? kf.pose.legFar.target : undefined, s.pelvis, DIM.thigh + DIM.shin],
+      ]
+    for (const [name, target, root, reach] of checks) {
+      if (!target) continue
+      const d = Math.hypot(target.x - root.x, target.y - root.y)
+      // 腕を伸ばしきる姿勢では丸め誤差で数値がわずかに超える。
+      // 1単位（身長の1%）までは見た目に影響しないので許容する
+      if (d > reach + 1) {
+        out.push({
+          anim: anim.id,
+          msg: `t=${kf.t} の${name}のIKターゲットが届かない（距離 ${r1(d)} > 到達長 ${reach}）`,
+        })
+      }
+    }
+  }
+  return out
+}
+
 function verify(anim: Animation): Issue[] {
-  const issues: Issue[] = []
+  const issues: Issue[] = [...checkReach(anim)]
   const tl = buildTimeline(anim)
   const hasGround = anim.props.some((p) => p.kind === 'ground')
   const N = 60

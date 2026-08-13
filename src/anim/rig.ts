@@ -98,8 +98,14 @@ export function resolveLimb(
     const solved = solveTwoBone(root, limb.target, l1, l2, limb.bend)
     upper = solved.upper
     lower = solved.lower
-    // 接地点は指定された座標をそのまま使う（IK の丸めで浮かないように）
-    end = limb.target
+    // 届く範囲なら指定座標をそのまま使う（IK の丸めで接地点が浮かないように）。
+    // 届かない位置を指定された場合に座標をそのまま使うと、腕がゴムのように
+    // 伸びて描かれてしまうので、伸ばしきった位置で止める
+    const reach = dist(root, limb.target)
+    end =
+      reach <= l1 + l2
+        ? limb.target
+        : step(step(root, upper, l1), lower, l2)
   } else {
     upper = limb.upper
     lower = limb.lower

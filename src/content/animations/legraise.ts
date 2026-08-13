@@ -203,7 +203,7 @@ export const legraise04: Animation = {
         head: 0,
         armNear: { mode: 'fk', upper: 180, lower: 180, ext: 180 },
         // トップで脚を伸ばしきる。床と体幹に対して直角になる
-        legNear: { mode: 'ik', target: { x: 60, y: 50 }, bend: -1, ext: 100 },
+        legNear: { mode: 'fk', upper: 90, lower: 90, ext: 100 },
       },
     },
     {
@@ -214,7 +214,7 @@ export const legraise04: Animation = {
         head: 0,
         armNear: { mode: 'fk', upper: 180, lower: 180, ext: 180 },
         // 脚をまっすぐのまま、床から3〜5センチのところまで下ろす
-        legNear: { mode: 'ik', target: { x: 16.1, y: 4 }, bend: -1, ext: 150 },
+        legNear: { mode: 'fk', upper: 182.6, lower: 182.6, ext: 150 },
       },
     },
     {
@@ -250,7 +250,7 @@ export const legraise05: Animation = {
         head: 0,
         armNear: { mode: 'fk', upper: 180, lower: 180, ext: 180 },
         // 脚をまっすぐロックしたまま、足を床から3〜5センチ浮かせる
-        legNear: { mode: 'ik', target: { x: 16.1, y: 4 }, bend: -1, ext: 150 },
+        legNear: { mode: 'fk', upper: 182.6, lower: 182.6, ext: 150 },
       },
     },
     {
@@ -263,7 +263,7 @@ export const legraise05: Animation = {
         head: 0,
         armNear: { mode: 'fk', upper: 180, lower: 180, ext: 180 },
         // 脚と体幹が直角になるところまで
-        legNear: { mode: 'ik', target: { x: 60, y: 50 }, bend: -1, ext: 100 },
+        legNear: { mode: 'fk', upper: 90, lower: 90, ext: 100 },
       },
     },
     {
@@ -273,7 +273,7 @@ export const legraise05: Animation = {
         torso: 0,
         head: 0,
         armNear: { mode: 'fk', upper: 180, lower: 180, ext: 180 },
-        legNear: { mode: 'ik', target: { x: 16.1, y: 4 }, bend: -1, ext: 150 },
+        legNear: { mode: 'fk', upper: 182.6, lower: 182.6, ext: 150 },
       },
     },
   ],
@@ -338,9 +338,9 @@ export const legraise07: Animation = {
     '膝を45度でロックしたまま、股関節だけを動かす。下ろすときに脚がまっすぐになりやすいので注意。角度を戻そうとすると体が振れる原因になる。',
   keyframes: hangingLegKeyframes({
     // 膝を45度に曲げ、足は体の数センチ後ろ
-    start: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: -1, ext: -60 },
+    start: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: 1, ext: -60 },
     // 骨盤の正面側に足がくるまで
-    finish: { mode: 'ik', target: { x: 100, y: 47 }, bend: -1, ext: 20 },
+    finish: { mode: 'ik', target: { x: 100, y: 47 }, bend: 1, ext: 20 },
   }),
 }
 
@@ -363,7 +363,7 @@ export const legraise08: Animation = {
         torso: 90,
         head: 88,
         armNear: LR_ARM,
-        legNear: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: -1, ext: -60 },
+        legNear: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: 1, ext: -60 },
       },
     },
     {
@@ -374,7 +374,7 @@ export const legraise08: Animation = {
         head: 88,
         armNear: LR_ARM,
         // 膝を曲げたまま、足が股関節と同じ高さまで上がる
-        legNear: { mode: 'ik', target: { x: 100, y: 47 }, bend: -1, ext: 20 },
+        legNear: { mode: 'ik', target: { x: 100, y: 47 }, bend: 1, ext: 20 },
       },
     },
     {
@@ -387,7 +387,7 @@ export const legraise08: Animation = {
         head: 88,
         armNear: LR_ARM,
         // そのまま脚を伸ばしきる。ロックした脚が床と平行になる
-        legNear: { mode: 'ik', target: { x: 104, y: 53 }, bend: -1, ext: 20 },
+        legNear: { mode: 'fk', upper: 0, lower: 0, ext: 20 },
       },
     },
     {
@@ -398,7 +398,7 @@ export const legraise08: Animation = {
         head: 88,
         armNear: LR_ARM,
         // 脚をまっすぐロックしたまま、4秒かけて下ろす
-        legNear: { mode: 'ik', target: { x: 60, y: 9 }, bend: -1, ext: -70 },
+        legNear: { mode: 'fk', upper: -90, lower: -90, ext: -70 },
       },
     },
     {
@@ -408,7 +408,7 @@ export const legraise08: Animation = {
         torso: 90,
         head: 88,
         armNear: LR_ARM,
-        legNear: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: -1, ext: -60 },
+        legNear: { mode: 'ik', target: { x: 57, y: 12.5 }, bend: 1, ext: -60 },
       },
     },
   ],
@@ -425,9 +425,9 @@ export const legraise09: Animation = {
     '脚を45度まで上げてロックしたところがスタート。そこから床と平行になるまで上げ、また45度に戻す。膝はまっすぐロックしたまま。',
   keyframes: hangingLegKeyframes({
     // 45度まで上げてロックした位置
-    start: { mode: 'ik', target: { x: 91.1, y: 21.9 }, bend: -1, ext: 0 },
+    start: { mode: 'fk', upper: -45, lower: -45, ext: 0 },
     // 床と平行
-    finish: { mode: 'ik', target: { x: 104, y: 53 }, bend: -1, ext: 20 },
+    finish: { mode: 'fk', upper: 0, lower: 0, ext: 20 },
   }),
 }
 
@@ -442,8 +442,8 @@ export const legraise10: Animation = {
     '2秒以上かけて上げ、その間に肺の空気をすべて吐き出す。戻っても腹部の収縮を完全には解かない。常に脚をロックし、弾みは一切つけない。',
   keyframes: hangingLegKeyframes({
     // 脚をまっすぐ下ろしきった位置
-    start: { mode: 'ik', target: { x: 60, y: 9 }, bend: -1, ext: -70 },
-    finish: { mode: 'ik', target: { x: 104, y: 53 }, bend: -1, ext: 20 },
+    start: { mode: 'fk', upper: -90, lower: -90, ext: -70 },
+    finish: { mode: 'fk', upper: 0, lower: 0, ext: 20 },
   }),
 }
 

@@ -58,6 +58,7 @@ function hspuKeyframes(top: Pose, bottom: Pose): Keyframe[] {
 /** ステップ1 ウォール・ヘッドスタンド（p.264-265） */
 export const hspu01: Animation = {
   id: 'hspu-01',
+  asymmetric: true,
   durationMs: 4000,
   camera: HS_CAMERA,
   props: [...HS_PROPS, { kind: 'block', x: 90, y: 0, w: 14, h: 3, label: 'クッション' }],
@@ -75,7 +76,9 @@ export const hspu01: Animation = {
         torso: -30,
         head: -70,
         armNear: { mode: 'ik', target: { x: 92, y: 2 }, bend: 1, ext: 0 },
+        // 蹴る脚は後ろにまっすぐ、支える脚は膝を肘に引きつける
         legNear: { mode: 'ik', target: { x: 56, y: 4 }, bend: -1, ext: 20 },
+        legFar: { mode: 'fk', upper: -120, lower: -60, ext: 20 },
       },
     },
     {
@@ -86,7 +89,9 @@ export const hspu01: Animation = {
         torso: -70,
         head: -30,
         armNear: { mode: 'ik', target: { x: 92, y: 2 }, bend: 1, ext: 0 },
-        legNear: { mode: 'fk', upper: 30, lower: 55, ext: 20 },
+        // 蹴る脚が先に上がり、支える脚が床を離れて追いかける
+        legNear: { mode: 'fk', upper: 40, lower: 60, ext: 20 },
+        legFar: { mode: 'fk', upper: -60, lower: -80, ext: 20 },
       },
     },
     {
@@ -100,7 +105,8 @@ export const hspu01: Animation = {
         head: -80,
         spineArch: -2,
         armNear: { mode: 'ik', target: { x: 92, y: 2 }, bend: 1, ext: 0 },
-        legNear: { mode: 'fk', upper: 84, lower: 84, ext: 20 },
+        legNear: { mode: 'fk', upper: 86, lower: 86, ext: 20 },
+        legFar: { mode: 'fk', upper: 82, lower: 82, ext: 20 },
       },
     },
     {
@@ -110,7 +116,9 @@ export const hspu01: Animation = {
         torso: -70,
         head: -30,
         armNear: { mode: 'ik', target: { x: 92, y: 2 }, bend: 1, ext: 0 },
-        legNear: { mode: 'fk', upper: 30, lower: 55, ext: 20 },
+        // 蹴る脚が先に上がり、支える脚が床を離れて追いかける
+        legNear: { mode: 'fk', upper: 40, lower: 60, ext: 20 },
+        legFar: { mode: 'fk', upper: -60, lower: -80, ext: 20 },
       },
     },
     {
@@ -120,7 +128,9 @@ export const hspu01: Animation = {
         torso: -30,
         head: -70,
         armNear: { mode: 'ik', target: { x: 92, y: 2 }, bend: 1, ext: 0 },
+        // 蹴る脚は後ろにまっすぐ、支える脚は膝を肘に引きつける
         legNear: { mode: 'ik', target: { x: 56, y: 4 }, bend: -1, ext: 20 },
+        legFar: { mode: 'fk', upper: -120, lower: -60, ext: 20 },
       },
     },
   ],
@@ -178,6 +188,7 @@ export const hspu02: Animation = {
 /** ステップ3 ウォール・ハンドスタンド（p.268-269） */
 export const hspu03: Animation = {
   id: 'hspu-03',
+  asymmetric: true,
   durationMs: 4000,
   camera: HS_CAMERA,
   props: HS_PROPS,
@@ -195,7 +206,8 @@ export const hspu03: Animation = {
         torso: -30,
         head: -75,
         armNear: { mode: 'ik', target: HS_HAND, bend: 1, ext: 0 },
-        legNear: { mode: 'ik', target: { x: 58, y: 4 }, bend: -1, ext: -20 },
+        legNear: { mode: 'ik', target: { x: 58, y: 4 }, bend: -1, ext: 20 },
+        legFar: { mode: 'fk', upper: -120, lower: -60, ext: 20 },
       },
     },
     {
@@ -205,7 +217,8 @@ export const hspu03: Animation = {
         torso: -62,
         head: -78,
         armNear: { mode: 'ik', target: HS_HAND, bend: 1, ext: 0 },
-        legNear: { mode: 'fk', upper: 30, lower: 55, ext: 20 },
+        legNear: { mode: 'fk', upper: 40, lower: 60, ext: 20 },
+        legFar: { mode: 'fk', upper: -60, lower: -80, ext: 20 },
       },
     },
     { t: 0.5, label: 'フィニッシュ', hold: 1000, pose: HS_TOP },
@@ -216,7 +229,8 @@ export const hspu03: Animation = {
         torso: -62,
         head: -78,
         armNear: { mode: 'ik', target: HS_HAND, bend: 1, ext: 0 },
-        legNear: { mode: 'fk', upper: 30, lower: 55, ext: 20 },
+        legNear: { mode: 'fk', upper: 40, lower: 60, ext: 20 },
+        legFar: { mode: 'fk', upper: -60, lower: -80, ext: 20 },
       },
     },
     {
@@ -226,7 +240,8 @@ export const hspu03: Animation = {
         torso: -30,
         head: -75,
         armNear: { mode: 'ik', target: HS_HAND, bend: 1, ext: 0 },
-        legNear: { mode: 'ik', target: { x: 58, y: 4 }, bend: -1, ext: -20 },
+        legNear: { mode: 'ik', target: { x: 58, y: 4 }, bend: -1, ext: 20 },
+        legFar: { mode: 'fk', upper: -120, lower: -60, ext: 20 },
       },
     },
   ],
@@ -321,10 +336,10 @@ export const hspu09: Animation = {
     '空いている手は甲を床に向け、指先を体と反対側へ向けてまっすぐ伸ばす。体重の約9割を支える腕に乗せる。手のひらと手の甲を同時に押して戻る。腕を体に近づけると負荷が減る。',
   keyframes: hspuKeyframes(
     handstandPose(35, {
-      armFar: { mode: 'ik', target: { x: 52, y: 2 }, bend: 1, ext: 180 },
+      armFar: { mode: 'ik', target: { x: 86, y: 4 }, bend: 1, ext: 180 },
     }),
     handstandPose(20, {
-      armFar: { mode: 'ik', target: { x: 52, y: 2 }, bend: 1, ext: 180 },
+      armFar: { mode: 'ik', target: { x: 86, y: 4 }, bend: 1, ext: 180 },
     }),
   ),
 }
