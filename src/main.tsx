@@ -10,10 +10,9 @@ import { Library } from './screens/Library'
 import { Progress } from './screens/Progress'
 import { Settings } from './screens/Settings'
 import { UiLab } from './screens/UiLab'
-import { Workout } from './screens/Workout'
 import './index.css'
 
-/** タブバー付きの通常画面。ワークアウト中はタブを出さず、集中を切らさない */
+/** タブバー付きの通常画面 */
 function Shell() {
   return (
     <div className="min-h-full">
@@ -38,9 +37,6 @@ createRoot(document.getElementById('root')!).render(
             </ContentGate>
           }
         >
-          {/* ワークアウト実行中はタブバーを出さない */}
-          <Route path="/workout" element={<Workout />} />
-
           <Route element={<Shell />}>
             <Route path="/" element={<Home />} />
             <Route path="/progress" element={<Progress />} />

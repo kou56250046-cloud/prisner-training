@@ -4,6 +4,7 @@ import {
   db,
   type CoachEvent,
   type Entry,
+  type EntryKind,
   type Progress,
   type Session,
   type Settings,
@@ -15,6 +16,12 @@ export function todayKey(d = new Date()): string {
   // ローカル日付。UTC に変換すると深夜のトレーニングが前日扱いになる
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/** todayKey の逆。ローカル日付として解釈する（UTC 扱いだと1日ずれる） */
+export function dateFromKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1)
 }
 
 export function weekdayKey(d = new Date()) {
@@ -73,49 +80,71 @@ export async function promote(chapterId: ChapterId): Promise<number> {
   return next
 }
 
-export async function startSession(routineId: string): Promise<Session> {
-  const open = await db.sessions.where('status').equals('in_progress').first()
-  if (open) return open
+/**
+ * その日の記録の器を返す。なければ作る。
+ *
+ * 図鑑から思い立った種目を記録していく形なので「セッションを始める・終える」
+ * という区切りがない。1日1つのセッションに記録を貯めていく。
+ */
+export async function getOrCreateTodaySession(routineId: string): Promise<Session> {
+  const date = todayKey()
+  const today = await db.sessions.where('date').equals(date).toArray()
+  const existing = today.sort((a, b) => a.startedAt - b.startedAt)[0]
+  if (existing) return existing
 
   const s: Session = {
     id: uid(),
-    date: todayKey(),
+    date,
     routineId,
-    status: 'in_progress',
+    status: 'done',
     startedAt: Date.now(),
   }
   await db.sessions.add(s)
   return s
 }
 
-export async function getOpenSession(): Promise<Session | undefined> {
-  return db.sessions.where('status').equals('in_progress').first()
-}
-
-export async function finishSession(
-  id: string,
-  rpe?: Session['rpe'],
-): Promise<void> {
-  const s = await db.sessions.get(id)
-  if (!s) return
-  await db.sessions.put({
-    ...s,
-    status: 'done',
-    finishedAt: Date.now(),
-    ...(rpe ? { rpe } : {}),
-  })
-}
-
-export async function abandonSession(id: string): Promise<void> {
-  const s = await db.sessions.get(id)
-  if (!s) return
-  await db.sessions.put({ ...s, status: 'abandoned', finishedAt: Date.now() })
-}
-
 export async function recordSet(e: Omit<Entry, 'id' | 'completedAt'>): Promise<Entry> {
   const entry: Entry = { ...e, id: uid(), completedAt: Date.now() }
   await db.entries.add(entry)
   return entry
+}
+
+/**
+ * ひとつのステップのセットをまとめて記録する。
+ *
+ * 同じステップを1日に何度もやることがあるので、セット番号は
+ * その日すでに記録したぶんの続きから振る。
+ */
+export async function recordSets(input: {
+  stepId: string
+  chapterId: ChapterId
+  targetReps: number
+  reps: number[]
+  kind?: EntryKind
+  routineId: string
+}): Promise<Entry[]> {
+  const session = await getOrCreateTodaySession(input.routineId)
+  const same = await db.entries.where('sessionId').equals(session.id).toArray()
+  const from = same.filter((e) => e.stepId === input.stepId).length
+
+  const now = Date.now()
+  const entries = input.reps.map<Entry>((actualReps, i) => ({
+    id: uid(),
+    sessionId: session.id,
+    stepId: input.stepId,
+    chapterId: input.chapterId,
+    setNo: from + i + 1,
+    kind: input.kind ?? 'work',
+    targetReps: input.targetReps,
+    actualReps: Math.max(0, Math.round(actualReps)),
+    // 同じミリ秒に並ぶと順序が不定になるので、セット順に1msずつずらす
+    completedAt: now + i,
+  }))
+
+  await db.entries.bulkAdd(entries)
+  // 終了時刻も伸ばしておく。カレンダーで「何時までやったか」が読める
+  await db.sessions.put({ ...session, finishedAt: now })
+  return entries
 }
 
 export async function getSessionEntries(sessionId: string): Promise<Entry[]> {
@@ -212,9 +241,73 @@ export async function getDailyVolume(): Promise<Map<string, { sets: number; reps
   return out
 }
 
+/** ある日の記録。カレンダーからの修正で使う */
+export type DayRecord = { session: Session; entries: Entry[] }
+
+/** 指定した日の記録を、セッション単位で古い順に返す */
+export async function getDayRecords(date: string): Promise<DayRecord[]> {
+  const sessions = await db.sessions.where('date').equals(date).toArray()
+  sessions.sort((a, b) => a.startedAt - b.startedAt)
+
+  return Promise.all(
+    sessions.map(async (session) => {
+      const entries = await db.entries.where('sessionId').equals(session.id).toArray()
+      // 連続して押すと completedAt が同じミリ秒になりうるので、セット番号で並びを固定する
+      entries.sort((a, b) => a.completedAt - b.completedAt || a.setNo - b.setNo)
+      return { session, entries }
+    }),
+  )
+}
+
+/** 打ち間違えたレップス数を直す */
+export async function updateEntryReps(id: string, actualReps: number): Promise<void> {
+  const e = await db.entries.get(id)
+  if (!e) return
+  await db.entries.put({ ...e, actualReps: Math.max(0, Math.round(actualReps)) })
+}
+
+/** 余分に記録してしまったセットを消す */
+export async function deleteEntry(id: string): Promise<void> {
+  await db.entries.delete(id)
+}
+
+/** セッションごと消す。ぶら下がっているセットも一緒に消える */
+export async function deleteSession(id: string): Promise<void> {
+  await db.transaction('rw', db.sessions, db.entries, async () => {
+    await db.entries.where('sessionId').equals(id).delete()
+    await db.sessions.delete(id)
+  })
+}
+
+/**
+ * セッションを別の日に移す。
+ * 深夜のトレーニングを日付が変わってから記録した、といった取り違えを直すためのもの。
+ */
+export async function moveSessionDate(id: string, date: string): Promise<void> {
+  const s = await db.sessions.get(id)
+  if (!s) return
+  await db.sessions.put({ ...s, date })
+}
+
+/** 主観強度を付け直す。オーバーワーク判定の入力なので後から直せるようにしておく */
+export async function updateSessionRpe(id: string, rpe: Session['rpe']): Promise<void> {
+  const s = await db.sessions.get(id)
+  if (!s) return
+  const next: Session = { ...s }
+  if (rpe) next.rpe = rpe
+  else delete next.rpe
+  await db.sessions.put(next)
+}
+
 export async function countSessionsInRange(fromMs: number): Promise<number> {
   const all = await db.sessions.where('status').equals('done').toArray()
   return all.filter((s) => s.startedAt >= fromMs).length
+}
+
+/** 期間内に実施した「日数」。1日に何度記録しても1日と数える */
+export async function sessionDaysInRange(fromMs: number): Promise<number> {
+  const all = await db.sessions.where('status').equals('done').toArray()
+  return new Set(all.filter((s) => s.startedAt >= fromMs).map((s) => s.date)).size
 }
 
 export async function recentRpe(limit = 4): Promise<NonNullable<Session['rpe']>[]> {

@@ -31,3 +31,88 @@ button {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+
+/* ------------------------------------------------------------------
+   ダッシュボードの動き。
+   数字が伸び、棒が育ち、カードがせり上がる。積み上がっていることを
+   目で感じさせるための演出なので、控えめな距離と短い時間に留める。
+   ------------------------------------------------------------------ */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 18px rgba(245, 158, 11, 0.45);
+  }
+  50% {
+    text-shadow: 0 0 34px rgba(236, 72, 153, 0.55);
+  }
+}
+
+/* ヘッダー背景のグラデーションをゆっくり流す */
+@keyframes drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.glow-pulse {
+  animation: glow-pulse 3.6s ease-in-out infinite;
+}
+
+.drift {
+  background-size: 220% 220%;
+  animation: drift 18s ease-in-out infinite;
+}
+
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: sheen 2.4s ease-in-out 0.6s;
+}
+
+/* 動きに酔う人・電池を節約したい人のために、OS の設定を尊重する */
+@media (prefers-reduced-motion: reduce) {
+  .rise-in,
+  .glow-pulse,
+  .drift,
+  .sheen::after {
+    animation: none;
+  }
+  .rise-in {
+    opacity: 1;
+    transform: none;
+  }
+}

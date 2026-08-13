@@ -2,44 +2,25 @@ import type { Content } from '@/content/load'
 import type { ChapterId, Metric, Routine, Weekday } from '@/content/types'
 import { getStepHistory } from '@/db/queries'
 import type { Progress } from '@/db/schema'
-import { buildWarmup, initialTarget, meetsTarget, nextTarget, type SetTarget } from './rules'
+import { buildWarmup, initialTarget, meetsTarget, nextTarget, type SetTarget, type WarmupSet } from './rules'
 
-export type PlannedSet = {
-  kind: 'warmup' | 'work'
-  chapterId: ChapterId
-  stepId: string
-  stepNo: number
-  stepName: string
-  setNo: number
-  targetReps: number
-  /** 回数ではなく秒数で数えるステップか（逆立ちの保持系） */
-  metric?: Metric
-}
-
-export type PlannedExercise = {
+/** その日ルーチンが指示している種目ひとつ分 */
+export type PlannedChapter = {
   chapterId: ChapterId
   chapterName: string
-  /** 本番で取り組むステップ */
   stepId: string
   stepNo: number
   stepName: string
+  /** 今日狙う目標 */
   target: SetTarget
+  /** 回数ではなく秒数で数えるステップか（逆立ちの保持系） */
+  metric?: Metric
+  /** ウォームアップの目安 */
+  warmup: { stepNo: number; stepName: string; reps: number }[]
   /** ルーチンが示すワークセット数の目安（書籍の「2〜3セット」） */
   routineSets: [number, number]
-  warmup: PlannedSet[]
-  work: PlannedSet[]
+  /** 「さまざまなグリップワーク」などの補助ワーク */
   note?: string
-}
-
-export type SessionPlan = {
-  routineId: string
-  routineName: string
-  weekday: Weekday
-  exercises: PlannedExercise[]
-  /** 休息日なら true */
-  isRestDay: boolean
-  /** ルーチンの予定ではなく、自分で種目を選んだセッション */
-  adHoc?: boolean
 }
 
 /**
@@ -62,91 +43,74 @@ export async function resolveTarget(stepId: string, standards: {
 }
 
 /**
- * その日のメニューを組み立てる。
+ * その曜日にルーチンが指示している種目。
  *
- * ウォームアップは現在のステップから機械的に導かれる（原本 p.291-292）ので、
- * ユーザーが毎回考える必要はない。
+ * カレンダーが1か月ぶんの日付から何十回も呼ぶので、DB を触らない純関数にしてある。
  */
-export async function buildSessionPlan(
+export function scheduledChapters(routine: Routine, weekday: Weekday): ChapterId[] {
+  return (routine.schedule[weekday] ?? []).map((slot) => slot.chapterId)
+}
+
+/** ルーチンが1週間に何日トレーニングを置いているか */
+export function trainingDaysPerWeek(routine: Routine): number {
+  return Object.values(routine.schedule).filter((slots) => slots.length > 0).length
+}
+
+/**
+ * その日の予定を組み立てる。
+ *
+ * 記録そのものは図鑑から行うので、これは「今日はこれをやる日」を示すための
+ * 案内でしかない。セット数を固定したメニューは作らない。
+ * ウォームアップは現在のステップから機械的に導かれる（原本 p.291-292）。
+ */
+export async function planForDay(
   routine: Routine,
   weekday: Weekday,
   progress: Progress[],
   content: Content,
-  opts: { extraWarmup?: boolean; chapters?: ChapterId[] } = {},
-): Promise<SessionPlan> {
-  // 種目を明示されたら、ルーチンの予定を無視してその種目でメニューを組む。
-  // 休息日でも体を動かしたいときや、書籍のルーチンから外れて
-  // 一種目だけやりたいときのための逃げ道。
-  const slots: { chapterId: ChapterId; sets: [number, number]; note?: string }[] = opts.chapters
-    ? opts.chapters.map((chapterId) => ({ chapterId, sets: [2, 3] as [number, number] }))
-    : (routine.schedule[weekday] ?? [])
-
+): Promise<PlannedChapter[]> {
   const byChapter = new Map(progress.map((p) => [p.chapterId, p]))
-  const exercises: PlannedExercise[] = []
+  const out: PlannedChapter[] = []
 
-  for (const slot of slots) {
+  for (const slot of routine.schedule[weekday] ?? []) {
     const chapter = content.chapterById.get(slot.chapterId)
     const steps = content.stepsByChapter.get(slot.chapterId) ?? []
     const currentStep = byChapter.get(slot.chapterId)?.currentStep ?? 1
     const step = steps.find((s) => s.stepNo === currentStep)
-    // まだ解説を用意していない種目・ステップはメニューに出さない
+    // まだ解説を用意していない種目・ステップは案内に出さない
     if (!chapter || !step) continue
 
-    const target = await resolveTarget(step.id, step.standards)
-
-    const warmup = buildWarmup(currentStep, {
-      ...(opts.extraWarmup !== undefined ? { extra: opts.extraWarmup } : {}),
-    }).flatMap<PlannedSet>((w, i) => {
-      const ws = steps.find((s) => s.stepNo === w.stepNo)
-      // 解説を用意していないステップはウォームアップから静かに落とす
-      if (!ws) return []
-      return [
-        {
-          kind: 'warmup',
-          chapterId: slot.chapterId,
-          stepId: ws.id,
-          stepNo: ws.stepNo,
-          stepName: ws.name,
-          setNo: i + 1,
-          targetReps: w.reps,
-          ...(ws.metric ? { metric: ws.metric } : {}),
-        },
-      ]
-    })
-
-    const work: PlannedSet[] = Array.from({ length: target.sets }, (_, i) => ({
-      kind: 'work' as const,
-      chapterId: slot.chapterId,
-      stepId: step.id,
-      stepNo: step.stepNo,
-      stepName: step.name,
-      setNo: i + 1,
-      targetReps: target.reps,
-      ...(step.metric ? { metric: step.metric } : {}),
-    }))
-
-    exercises.push({
+    out.push({
       chapterId: slot.chapterId,
       chapterName: chapter.name,
       stepId: step.id,
       stepNo: step.stepNo,
       stepName: step.name,
-      target,
+      target: await resolveTarget(step.id, step.standards),
+      ...(step.metric ? { metric: step.metric } : {}),
+      warmup: namedWarmup(currentStep, steps),
       routineSets: slot.sets,
-      warmup,
-      work,
       ...(slot.note ? { note: slot.note } : {}),
     })
   }
+  return out
+}
 
-  return {
-    routineId: routine.id,
-    routineName: opts.chapters ? '自分で選んだメニュー' : routine.name,
-    weekday,
-    exercises,
-    isRestDay: slots.length === 0,
-    ...(opts.chapters ? { adHoc: true } : {}),
-  }
+/** ウォームアップの各セットに、そのステップの名前を添える */
+export function namedWarmup(
+  currentStep: number,
+  steps: { stepNo: number; name: string }[],
+  opts: { extra?: boolean } = {},
+): { stepNo: number; stepName: string; reps: number }[] {
+  return buildWarmup(currentStep, opts).flatMap<{
+    stepNo: number
+    stepName: string
+    reps: number
+  }>((w: WarmupSet) => {
+    const s = steps.find((x) => x.stepNo === w.stepNo)
+    // 解説を用意していないステップは静かに落とす
+    return s ? [{ stepNo: w.stepNo, stepName: s.name, reps: w.reps }] : []
+  })
 }
 
 /** ルーチンの次の実施日を返す。休息日にいつ再開するのかを示すため */
@@ -170,7 +134,4 @@ export const WEEKDAY_LABEL: Record<Weekday, string> = {
   sat: '土',
 }
 
-/** 実行順に並べたセットの列。ウォームアップ → ワークセット を種目ごとに繰り返す */
-export function flattenPlan(plan: SessionPlan): PlannedSet[] {
-  return plan.exercises.flatMap((e) => [...e.warmup, ...e.work])
-}
+export const WEEKDAY_ORDER: Weekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']

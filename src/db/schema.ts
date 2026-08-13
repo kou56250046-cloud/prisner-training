@@ -47,6 +47,8 @@ export type Settings = {
   routineId: string
   restSeconds: number
   wakeLock: boolean
+  /** トレーニング中に1秒刻みのリズム音を鳴らすか。古い記録には無いので任意 */
+  metronome?: boolean
   /** 免責表示に同意したか */
   disclaimerAcceptedAt?: number
   /** 強化トレーニング中の種目 */
@@ -64,7 +66,14 @@ export type ContentCache = {
   cachedAt: number
 }
 
-export type CoachEventType = 'promote' | 'demote' | 'plateau' | 'overwork' | 'routineChange'
+export type CoachEventType =
+  | 'promote'
+  | 'demote'
+  | 'plateau'
+  | 'overwork'
+  | 'routineChange'
+  /** 1セットの自己最高記録を更新した */
+  | 'personalBest'
 
 export type CoachEvent = {
   id: string
@@ -102,4 +111,5 @@ export const DEFAULT_SETTINGS: Settings = {
   routineId: 'new_blood',
   restSeconds: 90,
   wakeLock: true,
+  metronome: true,
 }

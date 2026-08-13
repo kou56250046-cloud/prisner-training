@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { AnimPlayer } from '@/anim/AnimPlayer'
+import { RecordSheet } from '@/components/RecordSheet'
 import { StepDetail } from '@/components/StepDetail'
 import { animations } from '@/content/animations'
+import { chapterColor, chapterTint } from '@/content/chapterColors'
 import { useContent } from '@/content/ContentProvider'
+import type { ChapterId } from '@/content/types'
 import { ensureProgress, getStepHistory } from '@/db/queries'
 import type { Progress } from '@/db/schema'
 
@@ -14,6 +17,7 @@ export function Library() {
   const navigate = useNavigate()
   const [progress, setProgress] = useState<Progress[]>([])
   const [best, setBest] = useState<number[] | null>(null)
+  const [recording, setRecording] = useState(false)
 
   useEffect(() => {
     void ensureProgress().then(setProgress)
@@ -24,13 +28,15 @@ export function Library() {
   const step = stepNo ? steps.find((s) => s.stepNo === Number(stepNo)) : undefined
   const prog = progress.find((p) => p.chapterId === chapterId)
 
-  useEffect(() => {
+  const reloadBest = useCallback(() => {
     if (!step) {
       setBest(null)
       return
     }
     void getStepHistory(step.id, 1).then((h) => setBest(h[0]?.reps ?? null))
   }, [step])
+
+  useEffect(reloadBest, [reloadBest])
 
   // 種目一覧
   if (!chapter) {
@@ -46,14 +52,26 @@ export function Library() {
             const count = content.stepsByChapter.get(c.id)?.length ?? 0
             return (
               <li key={c.id}>
-                <Link to={`/library/${c.id}`} className="block rounded-xl border border-white/12 p-4">
+                <Link
+                  to={`/library/${c.id}`}
+                  className="block rounded-xl border p-4"
+                  style={{
+                    borderColor: chapterTint(c.id, 0.3),
+                    backgroundColor: chapterTint(c.id, 0.05),
+                  }}
+                >
                   <div className="flex items-baseline justify-between gap-2">
                     <h2 className="font-bold">{c.name}</h2>
-                    <span className="text-[11px] text-white/45 shrink-0 tabular-nums">
+                    <span
+                      className="text-[11px] shrink-0 tabular-nums font-bold"
+                      style={{ color: chapterColor(c.id) }}
+                    >
                       STEP {p?.currentStep ?? 1}
                     </span>
                   </div>
-                  <p className="text-[11px] text-amber-500/80 mt-0.5">{c.tagline}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: chapterTint(c.id, 0.85) }}>
+                    {c.tagline}
+                  </p>
                   <p className="text-[11px] text-white/35 mt-2">{count} / 10 ステップ収録</p>
                 </Link>
               </li>
@@ -105,18 +123,23 @@ export function Library() {
                 {s ? (
                   <Link
                     to={`/library/${chapter.id}/${n}`}
-                    className={`flex items-center gap-3 rounded-lg border p-3 ${
-                      current ? 'border-amber-500/60 bg-amber-500/5' : 'border-white/12'
-                    }`}
+                    className="flex items-center gap-3 rounded-lg border p-3"
+                    style={{
+                      borderColor: current
+                        ? chapterTint(chapter.id, 0.6)
+                        : 'rgba(255,255,255,0.12)',
+                      backgroundColor: current ? chapterTint(chapter.id, 0.07) : undefined,
+                    }}
                   >
                     <span
                       className={`w-8 h-8 shrink-0 rounded-full grid place-items-center text-xs font-bold ${
                         cleared
                           ? 'bg-white/20'
                           : current
-                            ? 'bg-amber-500 text-black'
+                            ? 'text-black'
                             : 'border border-white/20 text-white/50'
                       }`}
+                      style={current && !cleared ? { backgroundColor: chapterColor(chapter.id) } : undefined}
                     >
                       {n}
                     </span>
@@ -146,8 +169,11 @@ export function Library() {
 
   // ステップ詳細
   const anim = animations[step.id]
+  const isCurrentStep = prog?.currentStep === step.stepNo
+
   return (
-    <div className="pb-24">
+    // 固定表示の「記録する」(約88px) とタブバー(56px) の両方を避ける高さ
+    <div className="pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <header className="px-4 pt-4 pb-3">
         <button
           type="button"
@@ -157,11 +183,19 @@ export function Library() {
           ← {chapter.name}
         </button>
         <div className="flex items-baseline gap-2">
-          <span className="text-amber-500 text-xs font-bold tracking-widest">
+          <span
+            className="text-xs font-bold tracking-widest"
+            style={{ color: chapterColor(chapter.id) }}
+          >
             STEP {step.stepNo}
           </span>
           <h1 className="text-xl font-bold">{step.name}</h1>
         </div>
+        {isCurrentStep && (
+          <p className="text-[11px] mt-1" style={{ color: chapterTint(chapter.id, 0.85) }}>
+            いま取り組んでいるステップ
+          </p>
+        )}
       </header>
 
       <div className="px-4">
@@ -180,6 +214,32 @@ export function Library() {
       <main className="px-4 mt-6 space-y-6">
         <StepDetail step={step} best={best} />
       </main>
+
+      {/* 親指が届く位置に固定。タブバー(h-14)の真上に置く */}
+      <div className="fixed inset-x-0 z-20 px-4 pt-6 pb-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-concrete-950 via-concrete-950 to-transparent">
+        <button
+          type="button"
+          onClick={() => setRecording(true)}
+          className="w-full h-16 rounded-xl bg-amber-500 text-black text-lg font-bold active:bg-amber-400"
+        >
+          このステップを記録する
+        </button>
+      </div>
+
+      {recording && (
+        <RecordSheet
+          step={step}
+          chapterId={chapter.id as ChapterId}
+          isCurrentStep={isCurrentStep}
+          onClose={(saved) => {
+            setRecording(false)
+            if (saved) {
+              reloadBest()
+              void ensureProgress().then(setProgress)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

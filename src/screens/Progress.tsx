@@ -1,17 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { scheduledChapters, WEEKDAY_ORDER } from '@/coach/session'
+import { chapterColor, chapterTint } from '@/content/chapterColors'
+import { DayEditor } from '@/components/DayEditor'
 import { Sparkline } from '@/components/Sparkline'
+import { Stairs } from '@/components/Stairs'
 import { TrainingCalendar } from '@/components/TrainingCalendar'
 import { useContent } from '@/content/ContentProvider'
 import {
   currentStreak,
+  dateFromKey,
   ensureProgress,
   getDailyVolume,
+  getSettings,
   getStepHistory,
   getStepTotals,
   type StepTotal,
 } from '@/db/queries'
 import { db, type Progress as ProgressRow } from '@/db/schema'
+import type { Routine } from '@/content/types'
 
 type StepRow = {
   stepNo: number
@@ -41,53 +48,75 @@ export function Progress() {
   const [totals, setTotals] = useState({ sessions: 0, sets: 0, reps: 0 })
   const [open, setOpen] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  /** カレンダーから開いている修正シートの対象日 */
+  const [editingDay, setEditingDay] = useState<string | null>(null)
+  const [routine, setRoutine] = useState<Routine | null>(null)
+
+  /** その日にルーチンが指示している種目名。カレンダーに予定を重ねるのに使う */
+  const plannedFor = useCallback(
+    (date: string): string[] => {
+      if (!routine) return []
+      const weekday = WEEKDAY_ORDER[dateFromKey(date).getDay()]!
+      return scheduledChapters(routine, weekday).flatMap((id) => {
+        const c = content.chapterById.get(id)
+        return c ? [c.name] : []
+      })
+    },
+    [routine, content],
+  )
+
+  // 記録を修正したあとに読み直せるよう、集計をひとまとめにしておく
+  const load = useCallback(async () => {
+    const progress: ProgressRow[] = await ensureProgress()
+    const stepTotals = await getStepTotals()
+
+    const rows: ChapterStat[] = []
+    for (const p of progress) {
+      const chapter = content.chapterById.get(p.chapterId)
+      if (!chapter) continue
+      const steps = content.stepsByChapter.get(p.chapterId) ?? []
+      const step = steps.find((s) => s.stepNo === p.currentStep)
+      const history = step ? await getStepHistory(step.id, 10) : []
+
+      const stepRows: StepRow[] = steps.map((s) => ({
+        stepNo: s.stepNo,
+        name: s.name,
+        totals: stepTotals.get(s.id),
+        isCurrent: s.stepNo === p.currentStep,
+      }))
+
+      rows.push({
+        chapterId: p.chapterId,
+        name: chapter.name,
+        currentStep: p.currentStep,
+        unlockedStep: p.unlockedStep,
+        stepName: step?.name ?? '未収録',
+        trend: [...history].reverse().map((h) => Math.max(0, ...h.reps)),
+        chapterReps: stepRows.reduce((a, r) => a + (r.totals?.totalReps ?? 0), 0),
+        steps: stepRows,
+      })
+    }
+    setStats(rows)
+
+    setVolume(await getDailyVolume())
+    setStreak(await currentStreak())
+
+    const settings = await getSettings()
+    setRoutine(content.routines.find((r) => r.id === settings.routineId) ?? null)
+
+    const sessions = await db.sessions.where('status').equals('done').toArray()
+    const entries = await db.entries.toArray()
+    setTotals({
+      sessions: sessions.length,
+      sets: entries.length,
+      reps: entries.reduce((a, e) => a + e.actualReps, 0),
+    })
+    setReady(true)
+  }, [content])
 
   useEffect(() => {
-    void (async () => {
-      const progress: ProgressRow[] = await ensureProgress()
-      const stepTotals = await getStepTotals()
-
-      const rows: ChapterStat[] = []
-      for (const p of progress) {
-        const chapter = content.chapterById.get(p.chapterId)
-        if (!chapter) continue
-        const steps = content.stepsByChapter.get(p.chapterId) ?? []
-        const step = steps.find((s) => s.stepNo === p.currentStep)
-        const history = step ? await getStepHistory(step.id, 10) : []
-
-        const stepRows: StepRow[] = steps.map((s) => ({
-          stepNo: s.stepNo,
-          name: s.name,
-          totals: stepTotals.get(s.id),
-          isCurrent: s.stepNo === p.currentStep,
-        }))
-
-        rows.push({
-          chapterId: p.chapterId,
-          name: chapter.name,
-          currentStep: p.currentStep,
-          unlockedStep: p.unlockedStep,
-          stepName: step?.name ?? '未収録',
-          trend: [...history].reverse().map((h) => Math.max(0, ...h.reps)),
-          chapterReps: stepRows.reduce((a, r) => a + (r.totals?.totalReps ?? 0), 0),
-          steps: stepRows,
-        })
-      }
-      setStats(rows)
-
-      setVolume(await getDailyVolume())
-      setStreak(await currentStreak())
-
-      const sessions = await db.sessions.where('status').equals('done').toArray()
-      const entries = await db.entries.toArray()
-      setTotals({
-        sessions: sessions.length,
-        sets: entries.length,
-        reps: entries.reduce((a, e) => a + e.actualReps, 0),
-      })
-      setReady(true)
-    })()
-  }, [content])
+    void load()
+  }, [load])
 
   if (!ready) return <div className="p-6 text-white/40 text-sm">読み込み中…</div>
 
@@ -106,8 +135,11 @@ export function Progress() {
       </section>
 
       <section className="px-4 mb-7">
-        <h2 className="text-xs font-bold tracking-widest text-white/45 mb-2">実施カレンダー</h2>
-        <TrainingCalendar volume={volume} />
+        <div className="flex items-baseline justify-between gap-2 mb-2">
+          <h2 className="text-xs font-bold tracking-widest text-white/45">実施カレンダー</h2>
+          <p className="text-[10px] text-white/30">日付をタップで記録を修正</p>
+        </div>
+        <TrainingCalendar volume={volume} onSelectDay={setEditingDay} plannedFor={plannedFor} />
       </section>
 
       <section className="px-4">
@@ -116,18 +148,31 @@ export function Progress() {
           {stats.map((s) => {
             const expanded = open === s.chapterId
             return (
-              <li key={s.chapterId} className="rounded-xl border border-white/12 p-4">
+              <li
+                key={s.chapterId}
+                className="rounded-xl border p-4"
+                style={{ borderColor: chapterTint(s.chapterId, 0.25) }}
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <Link to={`/library/${s.chapterId}`} className="font-bold">
                     {s.name}
                   </Link>
-                  <span className="text-[11px] text-white/45 shrink-0 tabular-nums">
+                  <span
+                    className="text-[11px] shrink-0 tabular-nums font-bold"
+                    style={{ color: chapterColor(s.chapterId) }}
+                  >
                     STEP {s.currentStep} / 10
                   </span>
                 </div>
                 <p className="text-[11px] text-white/50 mt-0.5">{s.stepName}</p>
 
-                <Stairs current={s.currentStep} unlocked={s.unlockedStep} />
+                <div className="mt-3">
+                  <Stairs
+                    current={s.currentStep}
+                    unlocked={s.unlockedStep}
+                    color={chapterColor(s.chapterId)}
+                  />
+                </div>
 
                 <div className="mt-3">
                   <Sparkline values={s.trend} label="このステップのレップス推移" />
@@ -144,18 +189,29 @@ export function Progress() {
                   <span className="text-white/35">{expanded ? '閉じる' : 'ステップ別を見る'}</span>
                 </button>
 
-                {expanded && <StepTotals steps={s.steps} />}
+                {expanded && <StepTotals steps={s.steps} color={chapterColor(s.chapterId)} />}
               </li>
             )
           })}
         </ul>
       </section>
+
+      {editingDay && (
+        <DayEditor
+          date={editingDay}
+          planned={plannedFor(editingDay)}
+          onClose={(changed) => {
+            setEditingDay(null)
+            if (changed) void load()
+          }}
+        />
+      )}
     </div>
   )
 }
 
 /** ステップごとの積み上げ。数字が伸びていくこと自体を見せる */
-function StepTotals({ steps }: { steps: StepRow[] }) {
+function StepTotals({ steps, color }: { steps: StepRow[]; color: string }) {
   const max = Math.max(1, ...steps.map((s) => s.totals?.totalReps ?? 0))
 
   return (
@@ -166,9 +222,8 @@ function StepTotals({ steps }: { steps: StepRow[] }) {
           <li key={s.stepNo}>
             <div className="flex items-baseline gap-2 text-[11px]">
               <span
-                className={`w-5 shrink-0 tabular-nums ${
-                  s.isCurrent ? 'text-amber-500 font-bold' : 'text-white/40'
-                }`}
+                className={`w-5 shrink-0 tabular-nums ${s.isCurrent ? 'font-bold' : 'text-white/40'}`}
+                style={s.isCurrent ? { color } : undefined}
               >
                 {s.stepNo}
               </span>
@@ -181,8 +236,11 @@ function StepTotals({ steps }: { steps: StepRow[] }) {
             </div>
             <div className="h-1.5 rounded-full bg-white/8 mt-1 overflow-hidden">
               <div
-                className={`h-full rounded-full ${s.isCurrent ? 'bg-amber-500' : 'bg-white/30'}`}
-                style={{ width: `${(reps / max) * 100}%` }}
+                className={`h-full rounded-full ${s.isCurrent ? '' : 'bg-white/30'}`}
+                style={{
+                  width: `${(reps / max) * 100}%`,
+                  ...(s.isCurrent ? { backgroundColor: color } : {}),
+                }}
               />
             </div>
             {s.totals && (
@@ -209,23 +267,3 @@ function Stat({ label, value, unit }: { label: string; value: number; unit: stri
   )
 }
 
-/** 10段の階段。いまどこにいるかを一目で分かるようにする */
-function Stairs({ current, unlocked }: { current: number; unlocked: number }) {
-  return (
-    <div className="flex items-end gap-1 mt-3 h-10" aria-label={`ステップ${current} / 10`}>
-      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-        const cleared = n < unlocked
-        const here = n === current
-        return (
-          <div
-            key={n}
-            className={`flex-1 rounded-sm ${
-              here ? 'bg-amber-500' : cleared ? 'bg-white/35' : 'bg-white/10'
-            }`}
-            style={{ height: `${20 + n * 8}%` }}
-          />
-        )
-      })}
-    </div>
-  )
-}

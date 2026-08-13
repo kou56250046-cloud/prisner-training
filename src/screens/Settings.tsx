@@ -75,6 +75,9 @@ export function Settings() {
       </Section>
 
       <Section title="セット間の休憩">
+        <p className="text-[11px] text-white/45 mb-2 leading-relaxed">
+          記録シートの休憩ボタンを押したときの秒数です。
+        </p>
         <div className="flex gap-2">
           {[60, 90, 120, 180].map((s) => (
             <button
@@ -93,6 +96,25 @@ export function Settings() {
         </div>
       </Section>
 
+      <Section title="リズム音">
+        <button
+          type="button"
+          onClick={() => void patch({ metronome: !(settings.metronome ?? true) })}
+          className={`w-full h-12 rounded-lg border text-sm ${
+            settings.metronome ?? true
+              ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+              : 'border-white/12 text-white/60'
+          }`}
+        >
+          {settings.metronome ?? true ? '1秒ごとに鳴らす' : '鳴らさない'}
+        </button>
+        <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
+          書籍の標準ペースは「2秒で上げ、1秒静止、2秒で下ろす」。
+          5拍ごとに高い音が入るので、そこが1レップの頭になります。
+          記録シートからも切り替えられます。
+        </p>
+      </Section>
+
       <Section title="画面のスリープ防止">
         <button
           type="button"
@@ -106,7 +128,8 @@ export function Settings() {
           {settings.wakeLock ? 'トレーニング中は画面を消さない' : 'スリープ防止をしない'}
         </button>
         <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
-          iOS 16.4 以降で有効。対応していない端末では自動的に無視されます。
+          記録シートを開いている間だけ働きます。iOS 16.4 以降で有効。
+          対応していない端末では自動的に無視されます。
         </p>
       </Section>
 
