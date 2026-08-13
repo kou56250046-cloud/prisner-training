@@ -2,6 +2,12 @@ export type ChapterId = 'pushup' | 'squat' | 'pullup' | 'legraise' | 'bridge' | 
 
 export type Standard = { reps: number; sets: number }
 
+/**
+ * 基準の単位。ハンドスタンドの最初の3ステップだけは、
+ * 回数ではなく「何秒保てるか」が基準になっている。
+ */
+export type Metric = 'reps' | 'seconds'
+
 export type Standards = {
   beginner: Standard
   intermediate: Standard
@@ -42,6 +48,8 @@ export type Step = {
   /** このステップで得られる効果 */
   benefits: string[]
   standards: Standards
+  /** 基準の単位。省略時は回数 */
+  metric?: Metric
   /** 「技術を完璧にするために」 */
   technique: string
   /** つまずきポイント・注意点 */
@@ -89,6 +97,15 @@ export type Episode = {
 }
 
 /** 上級者の標準を「20レップスを2セット」のような表記にする */
-export function formatStandard(s: Standard): string {
+export function formatStandard(s: Standard, metric: Metric = 'reps'): string {
+  if (metric === 'seconds') {
+    const label = s.reps >= 60 && s.reps % 60 === 0 ? `${s.reps / 60}分` : `${s.reps}秒`
+    return s.sets > 1 ? `${label}を${s.sets}セット` : label
+  }
   return `${s.reps}レップスを${s.sets}セット`
+}
+
+/** 単位のラベル。カウンターの見出しなどに使う */
+export function metricLabel(metric: Metric = 'reps'): string {
+  return metric === 'seconds' ? '秒' : 'レップス'
 }

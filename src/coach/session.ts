@@ -1,5 +1,5 @@
 import type { Content } from '@/content/load'
-import type { ChapterId, Routine, Weekday } from '@/content/types'
+import type { ChapterId, Metric, Routine, Weekday } from '@/content/types'
 import { getStepHistory } from '@/db/queries'
 import type { Progress } from '@/db/schema'
 import { buildWarmup, initialTarget, meetsTarget, nextTarget, type SetTarget } from './rules'
@@ -12,6 +12,8 @@ export type PlannedSet = {
   stepName: string
   setNo: number
   targetReps: number
+  /** 回数ではなく秒数で数えるステップか（逆立ちの保持系） */
+  metric?: Metric
 }
 
 export type PlannedExercise = {
@@ -107,6 +109,7 @@ export async function buildSessionPlan(
           stepName: ws.name,
           setNo: i + 1,
           targetReps: w.reps,
+          ...(ws.metric ? { metric: ws.metric } : {}),
         },
       ]
     })
@@ -119,6 +122,7 @@ export async function buildSessionPlan(
       stepName: step.name,
       setNo: i + 1,
       targetReps: target.reps,
+      ...(step.metric ? { metric: step.metric } : {}),
     }))
 
     exercises.push({

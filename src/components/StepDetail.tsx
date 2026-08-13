@@ -1,4 +1,4 @@
-import { formatStandard, type Step } from '@/content/types'
+import { formatStandard, metricLabel, type Step } from '@/content/types'
 
 /** 種目図鑑とワークアウトの両方から使う、ステップ解説の本体 */
 export function StepDetail({ step, best }: { step: Step; best?: number[] | null }) {
@@ -49,17 +49,20 @@ export function StepDetail({ step, best }: { step: Step; best?: number[] | null 
             >
               <p className="text-[11px] text-white/50">{label}の標準</p>
               <p className="text-lg font-bold mt-1 tabular-nums">{s.reps}</p>
-              <p className="text-[11px] text-white/50">レップス × {s.sets}セット</p>
+              <p className="text-[11px] text-white/50">
+                {metricLabel(step.metric)}
+                {s.sets > 1 && ` × ${s.sets}セット`}
+              </p>
             </div>
           ))}
         </div>
         <p className="text-[11px] text-white/45 mt-3 leading-relaxed">
-          上級者の標準（{formatStandard(step.standards.advanced)}）を2回連続で達成すると、
+          上級者の標準（{formatStandard(step.standards.advanced, step.metric)}）を2回連続で達成すると、
           次のステップに進める。
         </p>
         {best && best.length > 0 && (
           <p className="text-[11px] text-amber-400/90 mt-1.5 tabular-nums">
-            直近の記録: {best.join(' / ')} レップス
+            直近の記録: {best.join(' / ')} {metricLabel(step.metric)}
           </p>
         )}
       </Block>

@@ -5,7 +5,7 @@ import { canPromote } from '@/coach/rules'
 import { buildSessionPlan, flattenPlan, type PlannedSet, type SessionPlan } from '@/coach/session'
 import { animations } from '@/content/animations'
 import { useContent } from '@/content/ContentProvider'
-import type { ChapterId } from '@/content/types'
+import { metricLabel, type ChapterId } from '@/content/types'
 import {
   abandonSession,
   addCoachEvent,
@@ -302,15 +302,25 @@ export function Workout() {
           {/* カウンター。親指が届く下側に大きく置く */}
           <div className="flex-1 flex flex-col justify-end px-4 pb-6">
             <p className="text-center text-xs text-white/45 mb-1">
-              目標 {current.targetReps} レップス
+              目標 {current.targetReps} {metricLabel(current.metric)}
             </p>
 
             <div className="flex items-center justify-center gap-4 mb-5">
-              <CounterButton label="−" onClick={() => setReps((r) => Math.max(0, r - 1))} />
+              {/* 秒数で数えるステップは刻みを5秒にする。1秒ずつ押させない */}
+              <CounterButton
+                label="−"
+                onClick={() => setReps((r) => Math.max(0, r - (current.metric === 'seconds' ? 5 : 1)))}
+              />
               <div className="w-28 text-center">
                 <span className="text-6xl font-bold tabular-nums">{reps}</span>
+                <span className="block text-[11px] text-white/40 mt-0.5">
+                  {metricLabel(current.metric)}
+                </span>
               </div>
-              <CounterButton label="＋" onClick={() => setReps((r) => r + 1)} />
+              <CounterButton
+                label="＋"
+                onClick={() => setReps((r) => r + (current.metric === 'seconds' ? 5 : 1))}
+              />
             </div>
 
             <button
