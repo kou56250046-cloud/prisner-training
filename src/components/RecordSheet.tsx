@@ -5,12 +5,15 @@ import { useContent } from '@/content/ContentProvider'
 import { metricLabel, type ChapterId, type Step } from '@/content/types'
 import {
   addCoachEvent,
+  dateFromKey,
   getSettings,
   getStepHistory,
   getStepTotals,
   promote,
   recordSets,
+  todayKey,
 } from '@/db/queries'
+import { queueSheetSync } from '@/db/sheetSync'
 import { useMetronome } from '@/hooks/useMetronome'
 import { buzz, useWakeLock } from '@/hooks/useWakeLock'
 
@@ -21,6 +24,25 @@ type Result = {
   promotedTo?: number
   /** 自己ベストを更新した場合のレップス数 */
   best?: number
+  /** 今日以外の日に付けた場合の日付ラベル */
+  dateLabel?: string
+}
+
+/** 今日を起点に n 日前の日付キー */
+function shiftDay(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return todayKey(d)
+}
+
+/** 「今日」「昨日」「8月28日(金)」 */
+function dayLabel(date: string): string {
+  if (date === todayKey()) return '今日'
+  if (date === shiftDay(1)) return '昨日'
+  if (date === shiftDay(2)) return '一昨日'
+  const d = dateFromKey(date)
+  const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  return `${d.getMonth() + 1}月${d.getDate()}日(${w})`
 }
 
 /**
@@ -33,12 +55,18 @@ export function RecordSheet({
   step,
   chapterId,
   isCurrentStep,
+  date: initialDate,
+  lockDate = false,
   onClose,
 }: {
   step: Step
   chapterId: ChapterId
   /** いま取り組んでいるステップか。進級判定はこのときだけ行う */
   isCurrentStep: boolean
+  /** 記録する日。省略すると今日 */
+  date?: string
+  /** 日付を変えさせない（カレンダーの特定の日から開いたとき） */
+  lockDate?: boolean
   onClose: (recorded: boolean) => void
 }) {
   const content = useContent()
@@ -46,6 +74,8 @@ export function RecordSheet({
   // 秒で数えるステップは5刻み。1秒ずつ押させない
   const stride = step.metric === 'seconds' ? 5 : 1
 
+  const today = todayKey()
+  const [date, setDate] = useState(initialDate ?? today)
   const [target, setTarget] = useState<SetTarget | null>(null)
   const [reps, setReps] = useState(0)
   const [sets, setSets] = useState(1)
@@ -117,9 +147,11 @@ export function RecordSheet({
         targetReps: target.reps,
         reps: values,
         routineId: settings.routineId,
+        date,
       })
 
       const next: Result = { total, sets: values.length }
+      if (date !== today) next.dateLabel = dayLabel(date)
 
       // 自己ベスト更新。積み上げが目に見えるほど続く理由になる
       const bestNow = Math.max(...values)
@@ -148,6 +180,8 @@ export function RecordSheet({
 
       setResult(next)
       setRecorded(true)
+      // スプレッドシートへの写しは裏で送る。失敗しても記録自体は端末に残っている
+      queueSheetSync()
       buzz(60)
     } finally {
       setSaving(false)
@@ -200,6 +234,8 @@ export function RecordSheet({
             <p className="text-sm text-white/40 py-8 text-center">読み込み中…</p>
           ) : (
             <>
+              <DateRow date={date} today={today} locked={lockDate} onChange={setDate} />
+
               {warmup.length > 0 && (
                 <p className="text-[11px] text-white/40 leading-relaxed mb-4">
                   ウォームアップの目安:{' '}
@@ -208,7 +244,7 @@ export function RecordSheet({
               )}
 
               <p className="text-[11px] text-white/45 mb-3 tabular-nums">
-                今日の目標 {target.reps}
+                {date === today ? '今日の目標' : 'この日の目標'} {target.reps}
                 {unit} × {target.sets}セット
               </p>
 
@@ -304,6 +340,77 @@ export function RecordSheet({
   )
 }
 
+/**
+ * 記録する日の選択。
+ *
+ * 書き忘れた日をあとから埋められないと、記録が途切れたまま残ってしまう。
+ * 既定は今日で、昨日・一昨日はワンタップ。それより前は日付入力から選ぶ。
+ */
+function DateRow({
+  date,
+  today,
+  locked,
+  onChange,
+}: {
+  date: string
+  today: string
+  locked: boolean
+  onChange: (v: string) => void
+}) {
+  if (locked) {
+    return (
+      <p className="text-[12px] text-white/55 mb-3">
+        <span className="text-white/35">記録する日</span>{' '}
+        <span className="text-white font-bold">{dayLabel(date)}</span>
+      </p>
+    )
+  }
+
+  const quick: [string, string][] = [
+    [today, '今日'],
+    [shiftDay(1), '昨日'],
+    [shiftDay(2), '一昨日'],
+  ]
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] text-white/40 shrink-0 mr-0.5">日付</span>
+        {quick.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onChange(k)}
+            aria-pressed={date === k}
+            className={`h-9 px-3 rounded-lg border text-[12px] ${
+              date === k
+                ? 'border-amber-500/60 bg-amber-500/10 text-amber-400'
+                : 'border-white/12 text-white/55'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <input
+          type="date"
+          value={date}
+          max={today}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          aria-label="記録する日"
+          className={`ml-auto h-9 px-2 rounded-lg bg-white/8 border text-[12px] tabular-nums ${
+            quick.some(([k]) => k === date) ? 'border-white/12' : 'border-amber-500/60 text-amber-400'
+          }`}
+        />
+      </div>
+      {date !== today && (
+        <p className="text-[11px] text-amber-400/80 mt-1.5">
+          {dayLabel(date)}の記録として保存します
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** 記録したあとの表示。進級と自己ベストはここで見せる */
 function ResultView({
   result,
@@ -318,6 +425,11 @@ function ResultView({
 }) {
   return (
     <div className="py-4">
+      {result.dateLabel && (
+        <p className="text-[12px] text-amber-400/90 text-center mb-3">
+          {result.dateLabel}の記録として保存しました
+        </p>
+      )}
       {result.promotedTo !== undefined ? (
         <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-5 text-center">
           <p className="text-[11px] font-bold tracking-[0.3em] text-amber-400">進級</p>

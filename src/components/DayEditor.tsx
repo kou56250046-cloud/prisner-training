@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { RecordSheet } from '@/components/RecordSheet'
+import { StepPicker } from '@/components/StepPicker'
 import { useContent } from '@/content/ContentProvider'
-import { metricLabel } from '@/content/types'
+import { metricLabel, type ChapterId, type Step } from '@/content/types'
 import {
   dateFromKey,
   deleteEntry,
@@ -13,6 +15,7 @@ import {
   type DayRecord,
 } from '@/db/queries'
 import type { Entry, Session } from '@/db/schema'
+import { queueSheetSync } from '@/db/sheetSync'
 import { buzz } from '@/hooks/useWakeLock'
 
 const KIND_LABEL: Record<Entry['kind'], string> = {
@@ -70,6 +73,13 @@ export function DayEditor({
   const [changed, setChanged] = useState(false)
   // 削除は取り消せないので、対象を1つだけ保持して2段階で確認する
   const [confirming, setConfirming] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  /** 追加で記録するステップ。選び終えたら記録シートを重ねて開く */
+  const [adding, setAdding] = useState<{
+    step: Step
+    chapterId: ChapterId
+    isCurrentStep: boolean
+  } | null>(null)
 
   const reload = useCallback(async () => {
     setRecords(await getDayRecords(date))
@@ -89,6 +99,12 @@ export function DayEditor({
     return () => window.removeEventListener('keydown', onKey)
   }, [close])
 
+  /** 端末で直したぶんをスプレッドシートにも反映させる */
+  const touched = () => {
+    setChanged(true)
+    queueSheetSync()
+  }
+
   const changeReps = async (entry: Entry, delta: number) => {
     const next = Math.max(0, entry.actualReps + delta)
     if (next === entry.actualReps) return
@@ -101,33 +117,33 @@ export function DayEditor({
         })) ?? null,
     )
     await updateEntryReps(entry.id, next)
-    setChanged(true)
+    touched()
   }
 
   const removeEntry = async (id: string) => {
     await deleteEntry(id)
     setConfirming(null)
-    setChanged(true)
+    touched()
     await reload()
   }
 
   const removeSession = async (id: string) => {
     await deleteSession(id)
     setConfirming(null)
-    setChanged(true)
+    touched()
     await reload()
   }
 
   const move = async (id: string, to: string) => {
     if (!to || to === date) return
     await moveSessionDate(id, to)
-    setChanged(true)
+    touched()
     await reload()
   }
 
   const setRpe = async (id: string, rpe: NonNullable<Session['rpe']>, current?: string) => {
     await updateSessionRpe(id, current === rpe ? undefined : rpe)
-    setChanged(true)
+    touched()
     await reload()
   }
 
@@ -184,10 +200,20 @@ export function DayEditor({
                 この日の記録はありません。
                 <br />
                 <span className="text-white/30 text-[12px]">
-                  修正できるのは、実際に記録した日だけです
+                  書き忘れた日は、下のボタンからあとで足せます
                 </span>
               </p>
             ))}
+
+          {records !== null && date <= todayKey() && (
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className="w-full h-12 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-400 text-sm font-bold"
+            >
+              ＋ この日の記録を追加する
+            </button>
+          )}
 
           {records?.map(({ session, entries }) => {
             const totalReps = entries.reduce((a, e) => a + e.actualReps, 0)
@@ -352,6 +378,34 @@ export function DayEditor({
           )}
         </div>
       </div>
+
+      {picking && (
+        <StepPicker
+          title={`${formatDate(date)}に追加`}
+          onPick={(step, chapterId, isCurrentStep) => {
+            setPicking(false)
+            setAdding({ step, chapterId, isCurrentStep })
+          }}
+          onClose={() => setPicking(false)}
+        />
+      )}
+
+      {adding && (
+        <RecordSheet
+          step={adding.step}
+          chapterId={adding.chapterId}
+          isCurrentStep={adding.isCurrentStep}
+          date={date}
+          lockDate
+          onClose={(saved) => {
+            setAdding(null)
+            if (saved) {
+              setChanged(true)
+              void reload()
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

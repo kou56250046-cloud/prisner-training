@@ -29,6 +29,7 @@ import {
   weekdayKey,
 } from '@/db/queries'
 import { db, type CoachEvent, type Progress, type Session } from '@/db/schema'
+import { queueSheetSync } from '@/db/sheetSync'
 
 type WeekCell = {
   date: string
@@ -131,6 +132,13 @@ export function Home() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 前回オフラインで送れなかったぶんを、開いたときにまとめて送り直す
+  useEffect(() => {
+    void getSettings().then((s) => {
+      if (s.sheetSyncError) queueSheetSync(3000)
+    })
+  }, [])
 
   if (!ready) return <div className="p-6 text-white/40 text-sm">読み込み中…</div>
 

@@ -54,6 +54,16 @@ export type Settings = {
   /** 強化トレーニング中の種目 */
   consolidationStepId?: string
   consolidationStartedAt?: number
+  /** GAS ウェブアプリの URL（/exec で終わるもの）。空なら連携しない */
+  sheetUrl?: string
+  /** GAS 側と合わせる合い言葉。URL を知られただけでは書き込ませないためのもの */
+  sheetToken?: string
+  /** 記録するたびに自動で送るか。省略時は送る */
+  sheetAutoSync?: boolean
+  /** 最後に送信できた時刻 */
+  sheetSyncedAt?: number
+  /** 直近の送信に失敗した理由。成功したら消す */
+  sheetSyncError?: string
 }
 
 /** 復号済みコンテンツのキャッシュ。合い言葉の再入力を毎回求めないための保管場所 */

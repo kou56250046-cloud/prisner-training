@@ -81,15 +81,30 @@ export async function promote(chapterId: ChapterId): Promise<number> {
 }
 
 /**
+ * その記録に付ける時刻。
+ *
+ * 今日なら現在時刻。過去の日を指定したときは、その日の正午を起点にする。
+ * 「昨日ぶんを今日書いた」記録が今日の時刻で並ぶと、履歴の順序が入れ替わってしまう。
+ */
+export function timeForDate(date: string, now = Date.now()): number {
+  if (date === todayKey(new Date(now))) return now
+  const d = dateFromKey(date)
+  d.setHours(12, 0, 0, 0)
+  return d.getTime()
+}
+
+/**
  * その日の記録の器を返す。なければ作る。
  *
  * 図鑑から思い立った種目を記録していく形なので「セッションを始める・終える」
  * という区切りがない。1日1つのセッションに記録を貯めていく。
  */
-export async function getOrCreateTodaySession(routineId: string): Promise<Session> {
-  const date = todayKey()
-  const today = await db.sessions.where('date').equals(date).toArray()
-  const existing = today.sort((a, b) => a.startedAt - b.startedAt)[0]
+export async function getOrCreateSessionForDate(
+  routineId: string,
+  date = todayKey(),
+): Promise<Session> {
+  const sameDay = await db.sessions.where('date').equals(date).toArray()
+  const existing = sameDay.sort((a, b) => a.startedAt - b.startedAt)[0]
   if (existing) return existing
 
   const s: Session = {
@@ -97,10 +112,14 @@ export async function getOrCreateTodaySession(routineId: string): Promise<Sessio
     date,
     routineId,
     status: 'done',
-    startedAt: Date.now(),
+    startedAt: timeForDate(date),
   }
   await db.sessions.add(s)
   return s
+}
+
+export async function getOrCreateTodaySession(routineId: string): Promise<Session> {
+  return getOrCreateSessionForDate(routineId, todayKey())
 }
 
 export async function recordSet(e: Omit<Entry, 'id' | 'completedAt'>): Promise<Entry> {
@@ -114,6 +133,8 @@ export async function recordSet(e: Omit<Entry, 'id' | 'completedAt'>): Promise<E
  *
  * 同じステップを1日に何度もやることがあるので、セット番号は
  * その日すでに記録したぶんの続きから振る。
+ *
+ * date を渡すと過去の日付にも書ける。書き忘れた日をあとから埋めるためのもの。
  */
 export async function recordSets(input: {
   stepId: string
@@ -122,12 +143,16 @@ export async function recordSets(input: {
   reps: number[]
   kind?: EntryKind
   routineId: string
+  /** YYYY-MM-DD。省略すると今日 */
+  date?: string
 }): Promise<Entry[]> {
-  const session = await getOrCreateTodaySession(input.routineId)
+  const date = input.date ?? todayKey()
+  const session = await getOrCreateSessionForDate(input.routineId, date)
   const same = await db.entries.where('sessionId').equals(session.id).toArray()
   const from = same.filter((e) => e.stepId === input.stepId).length
 
-  const now = Date.now()
+  // 過去日ぶんを何度かに分けて足しても順序が保たれるよう、その日の最後尾より後ろに置く
+  const base = Math.max(timeForDate(date), ...same.map((e) => e.completedAt + 1))
   const entries = input.reps.map<Entry>((actualReps, i) => ({
     id: uid(),
     sessionId: session.id,
@@ -138,12 +163,13 @@ export async function recordSets(input: {
     targetReps: input.targetReps,
     actualReps: Math.max(0, Math.round(actualReps)),
     // 同じミリ秒に並ぶと順序が不定になるので、セット順に1msずつずらす
-    completedAt: now + i,
+    completedAt: base + i,
   }))
 
   await db.entries.bulkAdd(entries)
   // 終了時刻も伸ばしておく。カレンダーで「何時までやったか」が読める
-  await db.sessions.put({ ...session, finishedAt: now })
+  const finishedAt = Math.max(session.finishedAt ?? 0, base + entries.length - 1)
+  await db.sessions.put({ ...session, finishedAt })
   return entries
 }
 

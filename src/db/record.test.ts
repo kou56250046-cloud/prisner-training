@@ -17,6 +17,9 @@ async function clearDb() {
 
 const PUSHUP = { stepId: 'pushup-01', chapterId: 'pushup' as const, routineId: 'new_blood' }
 
+/** 書き忘れた日をあとから埋めるテスト用 */
+const YESTERDAY = todayKey(new Date(Date.now() - 86_400_000))
+
 describe('図鑑からの記録', () => {
   beforeEach(clearDb)
 
@@ -71,6 +74,45 @@ describe('図鑑からの記録', () => {
 
     const entries = (await getDayRecords(todayKey()))[0]!.entries
     expect(entries.map((e) => e.actualReps)).toEqual([0, 8])
+  })
+
+  it('書き忘れた日をあとから記録できる', async () => {
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [10, 10], date: YESTERDAY })
+
+    const volume = await getDailyVolume()
+    expect(volume.get(YESTERDAY)).toEqual({ sets: 2, reps: 20 })
+
+    const day = (await getDayRecords(YESTERDAY))[0]!
+    expect(day.session.date).toBe(YESTERDAY)
+    // 記録時刻もその日に収まる。今日の時刻が付くと履歴の順序が狂う
+    expect(todayKey(new Date(day.entries[0]!.completedAt))).toBe(YESTERDAY)
+  })
+
+  it('過去の日に足しても今日のセッションとは分かれる', async () => {
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [10] })
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [8], date: YESTERDAY })
+
+    expect(await db.sessions.count()).toBe(2)
+    expect((await getDayRecords(todayKey()))[0]!.entries).toHaveLength(1)
+    expect((await getDayRecords(YESTERDAY))[0]!.entries).toHaveLength(1)
+  })
+
+  it('過去の日の記録は履歴で今日より後ろに並ぶ', async () => {
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [5] })
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [8], date: YESTERDAY })
+
+    const history = await getStepHistory(PUSHUP.stepId)
+    // 新しい順。あとから書いても昨日ぶんは昨日の位置に入る
+    expect(history.map((h) => h.reps)).toEqual([[5], [8]])
+  })
+
+  it('過去の日に2回に分けて記録してもセット番号が続く', async () => {
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [10, 10], date: YESTERDAY })
+    await recordSets({ ...PUSHUP, targetReps: 10, reps: [8], date: YESTERDAY })
+
+    const entries = (await getDayRecords(YESTERDAY))[0]!.entries
+    expect(entries.map((e) => e.setNo)).toEqual([1, 2, 3])
+    expect(entries.map((e) => e.actualReps)).toEqual([10, 10, 8])
   })
 
   it('実施日数は1日に何度記録しても1日と数える', async () => {
