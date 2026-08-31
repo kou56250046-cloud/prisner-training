@@ -19,6 +19,7 @@ npm run dev        # http://localhost:5173
 | `npm run typecheck` | 型チェック |
 | `npm run content` | `content/source/` を暗号化して `public/content.enc` を作る |
 | `npm run content:extract` | `content.enc` を復号して `content/source/` に戻す（復旧用） |
+| `npm run sheets -- <backup.json>` | バックアップJSONを、シートに貼れる TSV に変換 |
 | `npm run icons` | PWA アイコンを生成 |
 | `npm run build` | 本番ビルド |
 | `npm run check:deploy` | 公開サイトが正常に動いているか外から検証 |
@@ -57,6 +58,11 @@ GAS のウェブアプリを1枚立てて、設定 → スプレッドシート�
 
 送るのは `記録`（1セット1行）・`日別`・`ステップ別`・`進捗` の4枚と、
 復元用の生データを入れた非表示シート1枚。端末を変えたときは「シートから復元」で戻せる。
+記録が0件の端末から同期してもシートは消えない（GAS 側で拒否する）。
+
+書き出し済みのバックアップ JSON を、GAS を通さず手でシートに貼りたいときは
+`npm run sheets -- record/<ファイル>.json` で貼り付け用の TSV を作れる。
+表の組み立てはアプリの同期と同じコードを通るので、中身は一致する。
 
 ## 現在の状態
 

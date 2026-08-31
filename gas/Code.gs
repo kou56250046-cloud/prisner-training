@@ -68,6 +68,15 @@ function doPost(e) {
     try {
       var ss = book();
       var tables = body.tables || [];
+
+      // 記録が空の端末から同期すると、貯めたシートが全消しになる。
+      // 全置換方式の唯一の危険なので、ここで止める。
+      if (wouldWipe(ss, tables)) {
+        return json({
+          ok: false,
+          error: '送られてきた記録が0件です。シートを消さないよう中止しました（記録のある端末から同期してください）',
+        });
+      }
       var rows = 0;
       for (var i = 0; i < tables.length; i++) {
         rows += writeTable(ss, tables[i]);
@@ -80,6 +89,24 @@ function doPost(e) {
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
+}
+
+/**
+ * 「0件で上書き」になっていないか見る。
+ *
+ * 端末を替えた直後など、記録が入っていないアプリから同期すると、
+ * 全置換のせいで貯めたぶんが消える。記録シートが空になる同期だけ拒む。
+ */
+function wouldWipe(ss, tables) {
+  for (var i = 0; i < tables.length; i++) {
+    if (tables[i].name !== '記録') continue;
+    var incoming = (tables[i].rows || []).length;
+    var sheet = ss.getSheetByName('記録');
+    // 見出しの1行を除いた既存の行数
+    var existing = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
+    return incoming === 0 && existing > 0;
+  }
+  return false;
 }
 
 /** 1枚ぶんの表を書き直す。見出しは固定して太字にしておく */

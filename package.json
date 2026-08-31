@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "content": "tsx scripts/build-content.ts",
     "content:extract": "tsx scripts/extract-content.ts",
+    "sheets": "tsx --tsconfig tsconfig.node.json scripts/backup-to-sheets.ts",
     "icons": "tsx scripts/build-icons.ts",
     "check:deploy": "tsx scripts/check-deploy.ts",
     "verify": "tsx scripts/verify-anim.ts",
