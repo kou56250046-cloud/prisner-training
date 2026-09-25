@@ -9,6 +9,8 @@ const base = process.env.BASE_PATH ?? '/'
 
 export default defineConfig({
   base,
+  // ポートは ~/projects/PORTS.md で他プロジェクトと重ならないよう割り当てている
+  server: { port: 5179, strictPort: true },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
